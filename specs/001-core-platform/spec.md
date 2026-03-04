@@ -57,26 +57,13 @@ While working on an active scenario, the learner gets stuck and types a question
 
 ---
 
-### User Story 4 — Search Scenarios by Natural Language (Priority: P4)
-
-Instead of browsing the catalogue, the learner types a natural-language query into the scenario search bar — for example, "practice bind mounts." The platform computes an embedding of the query locally and compares it against pre-computed embeddings for all scenarios. The most relevant scenarios are returned, ranked by similarity.
-
-**Why this priority**: Semantic search is essential for discoverability when the catalogue grows beyond a handful of scenarios, but the platform works with manual browsing alone.
-
-**Independent Test**: With bundled scenarios loaded, type a query like "volumes," verify results are ranked by semantic similarity and not just substring match, verify no network calls are made for the embedding.
-
-**Acceptance Scenarios**:
-
-1. **Given** the scenario catalogue is populated with bundled scenarios (each with pre-computed embeddings), **When** the user types a natural-language query into the search bar, **Then** the platform computes the query embedding locally and returns scenarios ranked by cosine similarity.
-2. **Given** no scenarios closely match the query, **When** results are displayed, **Then** the user sees an empty or low-relevance result set and is not shown unrelated scenarios.
-
----
-
-### User Story 5 — Generate a Custom Scenario via Chat (Priority: P5)
+### User Story 4 — Generate a Custom Scenario via Chat (Priority: P4)
 
 The learner can't find a scenario that matches what they want to practise. They open the chat and describe what they want: "I want to practise debugging a container that exits immediately because of a bad entrypoint." They select a difficulty level. The platform sends the description to the LLM with the scenario JSON schema and the approved image list as constraints. The LLM returns a structured scenario. The platform validates the scenario (checking for only approved action types, only approved check types, only approved images), persists it with a locally computed embedding, and offers it for immediate start.
 
-**Why this priority**: Scenario generation unlocks infinite content, but the platform is fully usable with bundled scenarios alone. Generation also depends on all prior stories being solid.
+**Why this priority**: On-demand scenario generation is the core differentiator — it turns a fixed set of bundled exercises into an infinite learning surface tailored to what the user actually wants to practise. Without it, eduops is just another static tutorial collection.
+
+**Independent Test**: In the chat, describe a desired scenario and select a difficulty, verify the LLM is called with the correct schema and constraints, verify the returned scenario passes validation, verify it appears in the catalogue with an embedding, and verify it can be started.
 
 **Independent Test**: In the chat, describe a desired scenario and select a difficulty, verify the LLM is called with the correct schema and constraints, verify the returned scenario passes validation, verify it appears in the catalogue with an embedding, and verify it can be started.
 
@@ -85,6 +72,21 @@ The learner can't find a scenario that matches what they want to practise. They 
 1. **Given** the user describes a desired scenario in the chat and selects a difficulty, **When** the request is sent, **Then** the platform prompts the LLM with the scenario JSON schema, the approved image list, and the four allowed check types, and receives a structured scenario JSON response.
 2. **Given** the LLM returns a scenario, **When** the platform validates it, **Then** any scenario with unrecognised action types, unapproved check types, or images outside the approved list is rejected with a clear error message to the user.
 3. **Given** a generated scenario passes validation, **When** it is persisted, **Then** it is saved to the scenario catalogue with a locally computed embedding, marked as `source: generated`, and immediately available for selection and start.
+
+---
+
+### User Story 5 — Search Scenarios by Natural Language (Priority: P5)
+
+Instead of browsing the catalogue, the learner types a natural-language query into the scenario search bar — for example, "practice bind mounts." The platform computes an embedding of the query locally and compares it against pre-computed embeddings for all scenarios. The most relevant scenarios are returned, ranked by similarity.
+
+**Why this priority**: Semantic search improves discoverability as the catalogue grows (especially with generated scenarios), but the platform works with manual browsing alone.
+
+**Independent Test**: With bundled scenarios loaded, type a query like "volumes," verify results are ranked by semantic similarity and not just substring match, verify no network calls are made for the embedding.
+
+**Acceptance Scenarios**:
+
+1. **Given** the scenario catalogue is populated with bundled scenarios (each with pre-computed embeddings), **When** the user types a natural-language query into the search bar, **Then** the platform computes the query embedding locally and returns scenarios ranked by cosine similarity.
+2. **Given** no scenarios closely match the query, **When** results are displayed, **Then** the user sees an empty or low-relevance result set and is not shown unrelated scenarios.
 
 ---
 
