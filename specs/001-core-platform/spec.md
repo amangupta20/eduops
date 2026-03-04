@@ -5,6 +5,16 @@
 **Status**: Draft
 **Input**: User description: "eduops core platform — local-first Docker learning platform with AI coaching"
 
+## Clarifications
+
+### Session 2026-03-04
+
+- Q: What configuration file format and path should eduops use for LLM settings? → A: TOML at `~/.eduops/config.toml`, with an interactive first-run setup prompt (provider → key → model) when config is missing.
+- Q: When LLM-generated scenario validation fails, should the platform retry automatically? → A: One automatic retry with the validation error fed back to the LLM; if the second attempt also fails, show the error to the user and let them rephrase.
+- Q: How long should success checks wait before declaring failure? → A: 30-second timeout with 2-second polling interval per check.
+- Q: Should the coaching chat avoid giving direct answers? → A: Strictly Socratic by default (system prompt forbids direct answers), but the user can explicitly request the answer via a dedicated "Show Answer" action in the UI or by explicitly asking in chat.
+- Q: How many bundled scenarios should ship with v1? → A: 10 bundled scenarios covering core Docker topics, exercising all four success check types.
+
 ## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 — Browse and Start a Bundled Scenario (Priority: P1)
@@ -65,8 +75,6 @@ The learner can't find a scenario that matches what they want to practise. They 
 
 **Independent Test**: In the chat, describe a desired scenario and select a difficulty, verify the LLM is called with the correct schema and constraints, verify the returned scenario passes validation, verify it appears in the catalogue with an embedding, and verify it can be started.
 
-**Independent Test**: In the chat, describe a desired scenario and select a difficulty, verify the LLM is called with the correct schema and constraints, verify the returned scenario passes validation, verify it appears in the catalogue with an embedding, and verify it can be started.
-
 **Acceptance Scenarios**:
 
 1. **Given** the user describes a desired scenario in the chat and selects a difficulty, **When** the request is sent, **Then** the platform prompts the LLM with the scenario JSON schema, the approved image list, and the four allowed check types, and receives a structured scenario JSON response.
@@ -110,9 +118,10 @@ The learner decides to stop working on a scenario mid-way. They click "End sessi
 
 - What happens when Docker is not running or not installed when `eduops start` is executed? The platform must detect this and show a clear error message before attempting any scenario operations.
 - What happens when the user-configured LLM endpoint is unreachable or returns an error? Scenario browsing, selection, and execution (all local operations) must still work. Only chat, hint, review, and generation features should degrade, with a clear error message.
+- What happens when `~/.eduops/config.toml` exists but contains an invalid or expired API key? The platform must attempt the LLM call, surface the provider's error message clearly, and allow the user to re-run setup or edit the config file.
 - What happens when a setup action fails mid-sequence (e.g., image pull timeout, port already in use)? The platform must clean up any resources created by prior actions in the sequence and report the specific failure to the user.
 - What happens when the user starts a scenario while another session's containers are still running from a crashed process? Stale session recovery must run first, cleaning up orphaned resources before allowing a new session.
-- What happens when the LLM generates a scenario with an unapproved image or unrecognised action/check type? The scenario must be rejected at validation time, never executed, and the user must see a clear explanation.
+- What happens when the LLM generates a scenario with an unapproved image or unrecognised action/check type? The platform retries once with the validation error fed back to the LLM. If the second attempt also fails, the scenario is rejected, never executed, and the user sees the specific validation errors with the option to rephrase.
 - What happens when `success_checks` fail because the user's work is partially correct? Each check reports independently so the user knows exactly which checks passed and which failed.
 - What happens when the host port requested by a scenario is already in use? The setup action must fail clearly and not leave orphaned containers.
 
@@ -123,28 +132,34 @@ The learner decides to stop working on a scenario mid-way. They click "End sessi
 - **FR-001**: System MUST install via `pip install eduops` and start via `eduops start`, launching a server that serves the UI at `localhost:7337`.
 - **FR-002**: System MUST detect whether Docker is installed and the Docker daemon is running at startup, and display a clear error if either condition is not met.
 - **FR-003**: System MUST populate the scenario catalogue from bundled scenario files on first start and on every subsequent start (upserting, not duplicating).
-- **FR-004**: System MUST display a browsable scenario catalogue in the UI, showing title, description, difficulty, and tags for each scenario.
-- **FR-005**: System MUST support semantic search over the scenario catalogue using locally computed embeddings, with no external API calls for embedding computation.
-- **FR-006**: System MUST execute scenario setup by translating typed `setup_actions` objects directly to Docker SDK calls — no shell strings, no `subprocess`, no arbitrary command execution.
-- **FR-007**: System MUST label every Docker resource it creates (containers, networks, volumes) with `eduops.session=<session-uuid>`.
-- **FR-008**: System MUST create a workspace directory at `~/.eduops/workspaces/<session-id>/` for each session, populate it with scenario-defined `workspace_files`, and resolve the `{{workspace}}` template variable in all action fields before execution.
-- **FR-009**: System MUST stream live container logs from all session-labelled containers to the frontend via Server-Sent Events.
-- **FR-010**: System MUST provide a chat panel in the UI where the user can ask questions during an active scenario and receive LLM-generated coaching responses.
-- **FR-011**: System MUST track shown hints per session and never repeat the same hint within a session.
-- **FR-012**: System MUST run deterministic `success_checks` when the user submits a solution, reporting pass/fail per check with enough detail for the user to understand what failed.
-- **FR-013**: System MUST collect `docker inspect` output and container logs after successful checks and send them, along with `review_context`, to the configured LLM to generate a review.
-- **FR-014**: System MUST persist the AI review with the session record once generated.
-- **FR-015**: System MUST support LLM-based scenario generation from a user-provided description and difficulty level, constrained to the approved image list and the four allowed check types.
-- **FR-016**: System MUST validate all LLM-generated scenarios against the typed schema before persisting or executing — rejecting any scenario with unrecognised action types, unapproved check types, or unapproved images.
-- **FR-017**: System MUST compute and store an embedding for each newly generated scenario at creation time.
-- **FR-018**: System MUST run cleanup (stop/remove containers, remove networks, remove volumes, delete workspace, close session) on normal completion, explicit abandon, and process termination (`SIGINT`/`SIGTERM`).
-- **FR-019**: System MUST detect stale sessions on startup and clean up orphaned Docker resources via label-based queries before allowing new scenario starts.
-- **FR-020**: System MUST enforce single active session — the user cannot start a new scenario while another session is active or stale.
-- **FR-021**: System MUST accept LLM configuration (API key, endpoint, model) from a local configuration file, and MUST NOT proxy, store, or transmit the API key anywhere beyond the configured endpoint.
-- **FR-022**: System MUST work with any LLM provider that implements the OpenAI chat completions API specification.
-- **FR-023**: System MUST persist all chat messages (user and assistant) per session so the UI can restore conversation history on page reload.
-- **FR-024**: System MUST only accept the four defined success check types: `container_running`, `port_responds`, `docker_exec`, `file_in_workspace`. Any other type MUST be rejected before execution.
-- **FR-025**: System MUST constrain LLM-generated scenarios to the approved base image list: `nginx:alpine`, `httpd:alpine`, `python:3.11-slim`, `alpine:3`, `busybox:latest`, `node:20-alpine`. The list MUST be extensible by the user via configuration.
+- **FR-004**: The package MUST ship with 10 bundled scenarios covering the core v1 Docker topics (running containers, port bindings, bind mounts, named volumes, Dockerfile basics, image building, container debugging, environment variables, networking two containers, and multi-step workflows). Collectively, the 10 scenarios MUST exercise all four success check types (`container_running`, `port_responds`, `docker_exec`, `file_in_workspace`) and all three difficulty levels.
+- **FR-005**: System MUST display a browsable scenario catalogue in the UI, showing title, description, difficulty, and tags for each scenario.
+- **FR-006**: System MUST support semantic search over the scenario catalogue using locally computed embeddings, with no external API calls for embedding computation.
+- **FR-007**: System MUST execute scenario setup by translating typed `setup_actions` objects directly to Docker SDK calls — no shell strings, no `subprocess`, no arbitrary command execution.
+- **FR-008**: System MUST label every Docker resource it creates (containers, networks, volumes) with `eduops.session=<session-uuid>`.
+- **FR-009**: System MUST create a workspace directory at `~/.eduops/workspaces/<session-id>/` for each session, populate it with scenario-defined `workspace_files`, and resolve the `{{workspace}}` template variable in all action fields before execution. No other template variables are permitted in v1.
+- **FR-010**: System MUST stream live container logs from all session-labelled containers to the frontend via Server-Sent Events.
+- **FR-011**: System MUST provide a chat panel in the UI where the user can ask questions during an active scenario and receive LLM-generated coaching responses. The LLM MUST be system-prompted to use Socratic guidance by default — asking guiding questions and pointing to relevant commands/concepts without revealing the direct solution.
+- **FR-012**: The UI MUST provide an explicit "Show Answer" action (button or equivalent) that, when activated, instructs the LLM to reveal the direct solution. The user explicitly asking for the answer in chat MUST also trigger direct-answer mode for that response.
+- **FR-013**: System MUST track shown hints per session and never repeat the same hint within a session.
+- **FR-014**: System MUST run deterministic `success_checks` when the user submits a solution, reporting pass/fail per check with enough detail for the user to understand what failed. Each check MUST use a 30-second timeout with a 2-second polling interval before declaring failure.
+- **FR-015**: System MUST collect `docker inspect` output and container logs after successful checks and send them, along with `review_context`, to the configured LLM to generate a review.
+- **FR-016**: System MUST persist the AI review with the session record once generated.
+- **FR-017**: System MUST support LLM-based scenario generation from a user-provided description and difficulty level, constrained to the approved image list and the four allowed check types.
+- **FR-018**: System MUST validate all LLM-generated scenarios against the typed schema before persisting or executing — rejecting any scenario with unrecognised action types, unapproved check types, or unapproved images.
+- **FR-019**: When an LLM-generated scenario fails validation, the system MUST automatically retry once by sending the validation errors back to the LLM for correction. If the second attempt also fails validation, the system MUST display the specific validation errors to the user and allow them to rephrase their request.
+- **FR-020**: System MUST compute and store an embedding for each newly generated scenario at creation time.
+- **FR-021**: System MUST run cleanup in deterministic order — stop containers → remove containers → remove networks → remove volumes → delete workspace directory → mark session closed in SQLite — on normal completion, explicit abandon, and process termination (`SIGINT`/`SIGTERM`).
+- **FR-022**: System MUST detect stale sessions on startup and clean up orphaned Docker resources via label-based queries before allowing new scenario starts.
+- **FR-023**: System MUST enforce single active session — the user cannot start a new scenario while another session is active or stale.
+- **FR-024**: System MUST accept LLM configuration (API key, endpoint, model) from a TOML configuration file at `~/.eduops/config.toml`, and MUST NOT proxy, store, or transmit the API key anywhere beyond the configured endpoint.
+- **FR-025**: System MUST work with any LLM provider that implements the OpenAI chat completions API specification.
+- **FR-026**: On `eduops start`, if `~/.eduops/config.toml` does not exist or lacks LLM configuration, the CLI MUST present an interactive setup prompt that walks the user through selecting a provider, entering an API key, and selecting a model, then writes the result to `~/.eduops/config.toml`.
+- **FR-027**: System MUST persist all chat messages (user and assistant) per session so the UI can restore conversation history on page reload.
+- **FR-028**: System MUST only accept the four defined success check types: `container_running`, `port_responds`, `docker_exec`, `file_in_workspace`. Any other type MUST be rejected before execution.
+- **FR-029**: System MUST constrain LLM-generated scenarios to the approved base image list: `nginx:alpine`, `httpd:alpine`, `python:3.11-slim`, `alpine:3`, `busybox:latest`, `node:20-alpine`. The list MUST be extensible by the user via configuration.
+- **FR-030**: Scenarios requiring broken or exotic images MUST use a `build_image` action with an approved base image and introduce faults via inline Dockerfile content — never by pulling an arbitrary external image.
+- **FR-031**: `docker_exec` commands in success checks MUST be passed as a string array. No shell interpolation or shell string execution is permitted.
 
 ### Key Entities
 
@@ -159,7 +174,7 @@ The learner decides to stop working on a scenario mid-way. They click "End sessi
 
 - Users have a working Docker installation with the Docker daemon running and accessible via the default socket.
 - Users are comfortable with a terminal and can run `pip install` commands (or use `pipx`).
-- Users will configure their own LLM API key and endpoint before using coaching, chat, or scenario generation features. These features will not function without a configured LLM.
+- Users will configure their own LLM API key and endpoint via an interactive first-run prompt or by editing `~/.eduops/config.toml` directly. Coaching, chat, review, and scenario generation features will not function without a configured LLM.
 - The approved base image list is sufficient for v1 Docker learning scenarios. Users needing additional images can extend the list via config.
 - A single concurrent user is expected (local tool, one browser tab). No multi-user concurrency requirements.
 - Network connectivity is available for Docker image pulls and LLM API calls, but no other network access is required by the platform itself.
