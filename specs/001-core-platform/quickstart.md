@@ -128,7 +128,7 @@ cd ../backend && eduops start     # Serves everything at localhost:7337
 pip install eduops
 eduops start
 # → Interactive setup prompts for LLM provider, API key, model
-# → Opens http://localhost:7337
+# → App available at http://localhost:7337
 ```
 
 ---
@@ -213,4 +213,6 @@ eduops start
 | Update embeddings          | `python scripts/compute_embeddings.py`                                              |
 | Extend approved image list | Add to `~/.eduops/config.toml` under `[images] approved`                            |
 | Reset database             | `rm ~/.eduops/eduops.db` — recreated on next start                                  |
-| Clean all Docker resources | `docker rm -f $(docker ps -a -q --filter label=eduops.session)`                     |
+| Clean session containers   | `docker ps -a --filter label=eduops.session && docker rm -f <container-id...>`      |
+| Clean session networks     | `docker network ls --filter label=eduops.session && docker network rm <network...>` |
+| Clean session volumes      | `docker volume ls --filter label=eduops.session && docker volume rm <volume...>`    |

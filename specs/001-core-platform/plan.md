@@ -10,7 +10,7 @@ Build the eduops core platform: a local-first, interactive Docker learning tool 
 ## Technical Context
 
 **Language/Version**: Python 3.11+ (backend), TypeScript/React (frontend)
-**Primary Dependencies**: FastAPI, uvicorn, docker (Python SDK), sentence-transformers, openai (Python client), httpx; React, Vite, shadcn/ui, Tailwind CSS
+**Primary Dependencies**: FastAPI, uvicorn, docker (Python SDK), sentence-transformers[onnx], openai (Python client), httpx, sse-starlette; React, Vite, shadcn/ui, Tailwind CSS
 **Storage**: SQLite via Python `sqlite3` (no ORM) at `~/.eduops/eduops.db`
 **Testing**: pytest (backend), Vitest (frontend)
 **Target Platform**: Linux, macOS, WSL2 (anywhere Docker runs natively)
@@ -30,7 +30,7 @@ _GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 | III | Deterministic Resource Ownership  | **PASS** | All resources labelled `eduops.session=<uuid>`; cleanup derived from labels in fixed order; stale recovery on startup                                |
 | IV  | User-Controlled AI                | **PASS** | User configures key/endpoint in `~/.eduops/config.toml`; AI is reactive only; embeddings are local; no shell history capture                         |
 | V   | Fixed v1 Technology Stack         | **PASS** | Python 3.11+/FastAPI, React/Vite/shadcn/ui, SQLite via `sqlite3`, Docker SDK, sentence-transformers, `pip install eduops` → `eduops start`           |
-| VI  | Live Log Streaming                | **PASS** | SSE via FastAPI `StreamingResponse` for `docker logs -f`; no polling fallback                                                                        |
+| VI  | Live Log Streaming                | **PASS** | SSE via FastAPI/Starlette streaming responses (`EventSourceResponse`, built on `StreamingResponse`) for `docker logs -f`; no polling fallback        |
 | VII | Scope Discipline (v1)             | **PASS** | Docker CLI concepts only; no Compose/Ansible/K8s/auth/gamification/embedded terminal/proactive monitoring                                            |
 | ES  | Execution Safety Constraints      | **PASS** | Approved image list enforced, `build_image` for broken scenarios, four check types only, `{{workspace}}` only template variable                      |
 | DS  | Development Standards             | **PASS** | No ORM, no migration tooling, four DB tables, bundled scenarios pre-embedded, single active session, `pip install` contract                          |
@@ -81,7 +81,7 @@ backend/
 │       │   ├── catalogue.py     # Scenario catalogue (load bundled, upsert, search)
 │       │   ├── docker_exec.py   # Docker SDK action executor (setup_actions)
 │       │   ├── checks.py        # Success check runner (four types)
-│       │   ├── cleanup.py       # Label-based cleanup, signal handlers, stale recovery
+│       │   ├── cleanup.py       # Label-based cleanup, lifespan shutdown cleanup, stale recovery
 │       │   ├── coaching.py      # LLM chat/hint/review integration
 │       │   ├── embedding.py     # sentence-transformers embedding + cosine search
 │       │   ├── generation.py    # LLM scenario generation + validation + retry

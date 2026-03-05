@@ -738,7 +738,6 @@ packages = ["src/eduops"]
 | `sentence-transformers[onnx]` | latest       | Embedding inference via ONNX Runtime without PyTorch                                     |
 | `onnxruntime`                 | (transitive) | Pulled in by `sentence-transformers[onnx]`, replaces PyTorch for inference               |
 
-
 ---
 
 # Area 3: Docker Execution, Cleanup & Signal Handling
@@ -756,13 +755,13 @@ Implement an **action executor** that takes a list of typed action objects and e
 
 **Action → SDK mapping**:
 
-| Action Type      | SDK Call                            | Label Injection                                      |
-|------------------|-------------------------------------|------------------------------------------------------|
-| `pull_image`     | `client.images.pull(image, tag)`    | N/A (images are shared, not session-scoped)          |
-| `build_image`    | `client.images.build(fileobj=..., tag=..., labels=..., rm=True)` | `labels={"eduops.session": session_id}` |
-| `create_network` | `client.networks.create(name, labels=..., driver="bridge")` | `labels={"eduops.session": session_id}` |
-| `create_volume`  | `client.volumes.create(name, labels=...)`  | `labels={"eduops.session": session_id}` |
-| `run_container`  | `client.containers.run(detach=True, labels=..., ...)` | `labels={"eduops.session": session_id}` |
+| Action Type      | SDK Call                                                         | Label Injection                             |
+| ---------------- | ---------------------------------------------------------------- | ------------------------------------------- |
+| `pull_image`     | `client.images.pull(image, tag)`                                 | N/A (images are shared, not session-scoped) |
+| `build_image`    | `client.images.build(fileobj=..., tag=..., labels=..., rm=True)` | `labels={"eduops.session": session_id}`     |
+| `create_network` | `client.networks.create(name, labels=..., driver="bridge")`      | `labels={"eduops.session": session_id}`     |
+| `create_volume`  | `client.volumes.create(name, labels=...)`                        | `labels={"eduops.session": session_id}`     |
+| `run_container`  | `client.containers.run(detach=True, labels=..., ...)`            | `labels={"eduops.session": session_id}`     |
 
 **Rollback stack** (LIFO):
 
@@ -781,12 +780,12 @@ for action in scenario.setup_actions:
 
 Each undo function is a closure:
 
-| Action Type      | Undo                                                         |
-|------------------|--------------------------------------------------------------|
-| `pull_image`     | No undo (images are shared; removing would break other uses) |
-| `build_image`    | `client.images.remove(image_tag, force=True)`                |
-| `create_network` | `network.remove()`                                           |
-| `create_volume`  | `volume.remove(force=True)`                                  |
+| Action Type      | Undo                                                                    |
+| ---------------- | ----------------------------------------------------------------------- |
+| `pull_image`     | No undo (images are shared; removing would break other uses)            |
+| `build_image`    | `client.images.remove(image_tag, force=True)`                           |
+| `create_network` | `network.remove()`                                                      |
+| `create_volume`  | `volume.remove(force=True)`                                             |
 | `run_container`  | `container.stop(timeout=5)` then `container.remove(force=True, v=True)` |
 
 **Error handling per action type**:
@@ -811,13 +810,13 @@ Each undo function is a closure:
 
 ### Alternatives Considered
 
-| Alternative | Why Rejected |
-|---|---|
-| Fire-and-forget (no rollback) | Leaves orphaned resources on failure. The user would need to manually clean up networks/volumes from a partially-started scenario. Unacceptable UX. |
+| Alternative                                             | Why Rejected                                                                                                                                                                                            |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fire-and-forget (no rollback)                           | Leaves orphaned resources on failure. The user would need to manually clean up networks/volumes from a partially-started scenario. Unacceptable UX.                                                     |
 | Transaction-style "dry run" validation before execution | Docker has no dry-run API. Pre-validation can check image availability and port conflicts, but can't guarantee success (TOCTOU race). Pre-checks are useful as optimization but don't replace rollback. |
-| Store action results in DB for deferred rollback | Over-engineered for single-user local tool. The rollback stack in memory is sufficient — if the process crashes mid-setup, the stale recovery mechanism (Topic 4) handles it via label queries. |
-| Parallel action execution with a dependency DAG | Adds significant complexity (topological sort, concurrent error handling, partial rollback of parallel actions). For 3–5 actions taking <5 seconds total, sequential execution is fast enough. |
-| Docker Compose (shell out to `docker compose up`) | Violates the no-shell-strings constraint. Also loses fine-grained error handling and rollback control. |
+| Store action results in DB for deferred rollback        | Over-engineered for single-user local tool. The rollback stack in memory is sufficient — if the process crashes mid-setup, the stale recovery mechanism (Topic 4) handles it via label queries.         |
+| Parallel action execution with a dependency DAG         | Adds significant complexity (topological sort, concurrent error handling, partial rollback of parallel actions). For 3–5 actions taking <5 seconds total, sequential execution is fast enough.          |
+| Docker Compose (shell out to `docker compose up`)       | Violates the no-shell-strings constraint. Also loses fine-grained error handling and rollback control.                                                                                                  |
 
 ---
 
@@ -878,20 +877,21 @@ def cleanup_session(client: docker.DockerClient, session_id: str) -> None:
 
 **Edge cases handled**:
 
-| Edge Case | Handling |
-|---|---|
-| Container already stopped | `c.status` check before `stop()`. Even without it, `stop()` on an exited container is a no-op (returns immediately). |
-| Container already removed (by another cleanup call) | Catch `docker.errors.NotFound` and continue. |
-| Network still in use (container still connected) | The ordering (remove containers first, then networks) prevents this. If it happens anyway (race condition), `APIError` is caught and logged. A retry after a short delay could be added but is unnecessary for v1. |
-| Volume still attached to a container | Same as networks — ordering prevents this. `force=True` on `volume.remove()` removes even if a stopped container still references it. |
-| Docker daemon unreachable | `DockerException` / `ConnectionError` propagates up. Cleanup is best-effort — if Docker is down, there's nothing to clean up. |
-| Empty session (no resources to clean) | Each `list()` call returns an empty list. The function completes instantly. |
+| Edge Case                                           | Handling                                                                                                                                                                                                           |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Container already stopped                           | `c.status` check before `stop()`. Even without it, `stop()` on an exited container is a no-op (returns immediately).                                                                                               |
+| Container already removed (by another cleanup call) | Catch `docker.errors.NotFound` and continue.                                                                                                                                                                       |
+| Network still in use (container still connected)    | The ordering (remove containers first, then networks) prevents this. If it happens anyway (race condition), `APIError` is caught and logged. A retry after a short delay could be added but is unnecessary for v1. |
+| Volume still attached to a container                | Same as networks — ordering prevents this. `force=True` on `volume.remove()` removes even if a stopped container still references it.                                                                              |
+| Docker daemon unreachable                           | `DockerException` / `ConnectionError` propagates up. Cleanup is best-effort — if Docker is down, there's nothing to clean up.                                                                                      |
+| Empty session (no resources to clean)               | Each `list()` call returns an empty list. The function completes instantly.                                                                                                                                        |
 
 **Container list with `all=True`**: Critical — without `all=True`, `containers.list()` only returns running containers. Stopped/exited containers from a crashed scenario would be missed.
 
 ### Rationale
 
 **Fixed dependency order** is essential because Docker enforces referential integrity:
+
 - A network cannot be removed while a container is connected to it.
 - A volume cannot be removed while mounted by a running container (though `force=True` handles stopped containers).
 
@@ -905,13 +905,13 @@ Removing containers first breaks all dependencies, making subsequent network and
 
 ### Alternatives Considered
 
-| Alternative | Why Rejected |
-|---|---|
-| `docker system prune` with filters | Prune APIs have "unused" semantics that don't match "remove everything for this session." A running container's volume wouldn't be pruned. Individual removal is more explicit and reliable. |
-| Reverse the creation order from the rollback stack | Only works if the original setup completed and the stack is in memory. Doesn't work for stale recovery (Topic 4) or cleanup after a process crash. Label-based discovery is the universal mechanism. |
-| Remove in parallel (asyncio.gather) | Adds complexity for negligible speedup. Cleanup of 3–5 resources takes <2 seconds sequentially. Parallel removal can hit race conditions (e.g., removing a network while a container is still being removed). |
-| Single `docker compose down` equivalent | No Compose files to target. Resources are created individually by the action executor. |
-| Track resource IDs in the database and iterate | Adds DB dependency to cleanup. If the DB is corrupted or the process crashed before writing resource IDs, cleanup fails. Label-based discovery works even after a crash because the source of truth is Docker itself. |
+| Alternative                                        | Why Rejected                                                                                                                                                                                                          |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docker system prune` with filters                 | Prune APIs have "unused" semantics that don't match "remove everything for this session." A running container's volume wouldn't be pruned. Individual removal is more explicit and reliable.                          |
+| Reverse the creation order from the rollback stack | Only works if the original setup completed and the stack is in memory. Doesn't work for stale recovery (Topic 4) or cleanup after a process crash. Label-based discovery is the universal mechanism.                  |
+| Remove in parallel (asyncio.gather)                | Adds complexity for negligible speedup. Cleanup of 3–5 resources takes <2 seconds sequentially. Parallel removal can hit race conditions (e.g., removing a network while a container is still being removed).         |
+| Single `docker compose down` equivalent            | No Compose files to target. Resources are created individually by the action executor.                                                                                                                                |
+| Track resource IDs in the database and iterate     | Adds DB dependency to cleanup. If the DB is corrupted or the process crashed before writing resource IDs, cleanup fails. Label-based discovery works even after a crash because the source of truth is Docker itself. |
 
 ---
 
@@ -944,6 +944,7 @@ app = FastAPI(lifespan=lifespan)
 ### Rationale
 
 **Uvicorn's signal handling**: Uvicorn installs its own `SIGINT` and `SIGTERM` handlers. On receiving either signal:
+
 1. It sets a shutdown flag.
 2. It stops accepting new connections.
 3. It triggers the ASGI lifespan shutdown event.
@@ -953,11 +954,12 @@ app = FastAPI(lifespan=lifespan)
 The ASGI lifespan shutdown event is delivered to FastAPI, which resumes the lifespan context manager past the `yield`. This is the **designed, documented integration point** for shutdown cleanup.
 
 **Why not custom signal handlers**: Installing `signal.signal(SIGINT, handler)` or `signal.signal(SIGTERM, handler)` from application code **conflicts with uvicorn's own handlers**. The last handler registered wins, so:
+
 - If the app registers first and uvicorn overwrites → the app handler never fires.
 - If uvicorn registers first and the app overwrites → uvicorn's graceful shutdown breaks (no connection draining, no lifespan event).
 - Using `loop.add_signal_handler()` in asyncio has the same problem — uvicorn uses this internally.
 
-The lifespan approach avoids all conflicts because it works *with* uvicorn's signal handling rather than competing with it.
+The lifespan approach avoids all conflicts because it works _with_ uvicorn's signal handling rather than competing with it.
 
 **Timeout considerations**: Set `--timeout-graceful-shutdown=30` when launching uvicorn. This gives the lifespan shutdown block 30 seconds to complete Docker cleanup. For a session with 3–5 containers, cleanup typically takes 5–15 seconds (dominated by `container.stop(timeout=10)`). The 30-second budget is sufficient.
 
@@ -982,14 +984,14 @@ atexit.register(_atexit_cleanup)
 
 ### Alternatives Considered
 
-| Alternative | Why Rejected |
-|---|---|
-| Custom `signal.signal(SIGTERM, handler)` | Conflicts with uvicorn's signal handling. Either the custom handler or uvicorn's handler is overwritten. Cannot coexist reliably. |
-| `loop.add_signal_handler(signal.SIGTERM, handler)` | Same conflict — uvicorn uses this internally. Overwriting it breaks graceful shutdown. |
-| Wrap uvicorn in a parent process that handles signals | Over-engineered. Adds process management complexity (fork, waitpid, signal forwarding). The lifespan approach achieves the same result with zero additional infrastructure. |
+| Alternative                                             | Why Rejected                                                                                                                                                                                                         |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Custom `signal.signal(SIGTERM, handler)`                | Conflicts with uvicorn's signal handling. Either the custom handler or uvicorn's handler is overwritten. Cannot coexist reliably.                                                                                    |
+| `loop.add_signal_handler(signal.SIGTERM, handler)`      | Same conflict — uvicorn uses this internally. Overwriting it breaks graceful shutdown.                                                                                                                               |
+| Wrap uvicorn in a parent process that handles signals   | Over-engineered. Adds process management complexity (fork, waitpid, signal forwarding). The lifespan approach achieves the same result with zero additional infrastructure.                                          |
 | Rely solely on stale recovery (Topic 4) at next startup | Leaves resources running between crashes — containers consume CPU/memory, ports are occupied. Cleanup on shutdown is necessary for good resource hygiene. Stale recovery is the fallback, not the primary mechanism. |
-| `atexit` as the primary mechanism | `atexit` doesn't run on `SIGKILL` or `os._exit()`. It also runs *after* the event loop is closed, so async cleanup code can't run. It's only useful as a synchronous, best-effort fallback. |
-| Background watchdog thread that monitors signals | Adds threading complexity. The watchdog would need to coordinate with the main thread's event loop. The lifespan pattern is simpler and more Pythonic. |
+| `atexit` as the primary mechanism                       | `atexit` doesn't run on `SIGKILL` or `os._exit()`. It also runs _after_ the event loop is closed, so async cleanup code can't run. It's only useful as a synchronous, best-effort fallback.                          |
+| Background watchdog thread that monitors signals        | Adds threading complexity. The watchdog would need to coordinate with the main thread's event loop. The lifespan pattern is simpler and more Pythonic.                                                               |
 
 ---
 
@@ -997,7 +999,7 @@ atexit.register(_atexit_cleanup)
 
 ### Decision
 
-On application startup (in the lifespan's pre-`yield` block), query Docker for **any** resources with the label key `eduops.session` and run the standard cleanup procedure for each unique session ID found. Also mark those sessions as `crashed` in the database.
+On application startup (in the lifespan's pre-`yield` block), query Docker for **any** resources with the label key `eduops.session` and run the standard cleanup procedure for each unique session ID found. Also mark those sessions as `abandoned` in the database.
 
 **Implementation**:
 
@@ -1033,14 +1035,14 @@ def recover_stale_sessions(client: docker.DockerClient) -> None:
     for session_id in stale_session_ids:
         logger.info(f"Cleaning stale session: {session_id}")
         cleanup_session(client, session_id)  # Reuses Topic 2 cleanup
-        mark_session_status(session_id, "crashed")
+        mark_session_status(session_id, "abandoned")
 
     logger.info("Stale session recovery complete.")
 ```
 
 **Key design points**:
 
-1. **Query by label key only**: `filters={"label": "eduops.session"}` matches any resource with that label key, regardless of value. This discovers resources from *all* previous sessions, not just one.
+1. **Query by label key only**: `filters={"label": "eduops.session"}` matches any resource with that label key, regardless of value. This discovers resources from _all_ previous sessions, not just one.
 2. **Union across resource types**: A partially-cleaned previous crash might have left only volumes (if containers and networks were cleaned but volumes weren't). Querying all three resource types and taking the union of session IDs ensures complete discovery.
 3. **Reuse `cleanup_session`**: The same cleanup function from Topic 2 handles the actual removal. No separate "stale cleanup" logic needed.
 4. **Update DB state**: Sessions that were `active` in the DB but whose resources are now orphaned are marked as `crashed`. This provides auditability and prevents the UI from showing a "resume" option for a dead session.
@@ -1058,13 +1060,13 @@ def recover_stale_sessions(client: docker.DockerClient) -> None:
 
 ### Alternatives Considered
 
-| Alternative | Why Rejected |
-|---|---|
-| Track resource IDs in DB, check DB on startup | DB may be stale or corrupted after a crash. Docker is the ground truth for what resources actually exist. DB-based tracking is a useful optimization (avoids scanning) but can't be the sole mechanism. |
-| Periodic background sweep (e.g., every 60s) | Doesn't address the startup problem (port conflicts on new sessions). Adds continuous overhead for a rare event (crashes). On-startup sweep is simpler and sufficient. |
-| Use Docker's `--rm` flag on containers | `--rm` removes the container on exit, but only if the Docker daemon is running. If the daemon restarts, `--rm` containers may persist. Also doesn't help with networks/volumes. Useful as a supplementary measure but doesn't replace label-based recovery. |
-| Require the user to manually run cleanup (`eduops cleanup`) | Poor UX. The user may not know resources are orphaned. Automatic recovery is a basic hygiene expectation. |
-| Use Docker container restart policy `on-failure` and let containers self-heal | Wrong goal — we want to *remove* orphaned resources, not restart them. A crashed eduops session's containers should be destroyed, not restarted. |
+| Alternative                                                                   | Why Rejected                                                                                                                                                                                                                                                |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Track resource IDs in DB, check DB on startup                                 | DB may be stale or corrupted after a crash. Docker is the ground truth for what resources actually exist. DB-based tracking is a useful optimization (avoids scanning) but can't be the sole mechanism.                                                     |
+| Periodic background sweep (e.g., every 60s)                                   | Doesn't address the startup problem (port conflicts on new sessions). Adds continuous overhead for a rare event (crashes). On-startup sweep is simpler and sufficient.                                                                                      |
+| Use Docker's `--rm` flag on containers                                        | `--rm` removes the container on exit, but only if the Docker daemon is running. If the daemon restarts, `--rm` containers may persist. Also doesn't help with networks/volumes. Useful as a supplementary measure but doesn't replace label-based recovery. |
+| Require the user to manually run cleanup (`eduops cleanup`)                   | Poor UX. The user may not know resources are orphaned. Automatic recovery is a basic hygiene expectation.                                                                                                                                                   |
+| Use Docker container restart policy `on-failure` and let containers self-heal | Wrong goal — we want to _remove_ orphaned resources, not restart them. A crashed eduops session's containers should be destroyed, not restarted.                                                                                                            |
 
 ---
 
@@ -1150,6 +1152,7 @@ def run_exec_check(
 ### Rationale
 
 **`ThreadPoolExecutor` for timeouts**: The Docker SDK's `exec_run` has no timeout parameter. The only way to impose a time limit is from the calling side. Options:
+
 - `threading.Timer` + killing the thread: Python threads can't be killed. The Timer can set a flag, but the blocking `exec_run` won't check it.
 - `signal.alarm()`: Only works on the main thread, not from async contexts or worker threads.
 - `concurrent.futures.ThreadPoolExecutor` + `future.result(timeout=N)`: Cleanly raises `TimeoutError` after N seconds. The background thread continues (the exec API call is still in flight), but the check result is returned immediately. This is the standard Python pattern for timeouts on blocking calls.
@@ -1163,32 +1166,31 @@ def run_exec_check(
 
 ### Alternatives Considered
 
-| Alternative | Why Rejected |
-|---|---|
-| `exec_run(cmd="shell string")` with string splitting | Violates no-shell-strings constraint. Docker SDK does accept a string and uses `shlex.split()`, but this is implicit and fragile (platform-dependent splitting, no quoting guarantees). |
-| `exec_run(cmd=["sh", "-c", "some command"])` | Wrapping in `sh -c` reintroduces shell interpretation — glob expansion, variable substitution, piping. This defeats the purpose of the typed command constraint. Only acceptable if the scenario explicitly requires shell features (not in v1). |
-| `subprocess.run(["docker", "exec", container_id, ...])` | Violates the no-shell-strings/subprocess constraint. Bypasses SDK connection pooling. Loses structured error handling. |
-| `exec_run` with `stream=True` and line-by-line matching | Adds complexity for no benefit when checking final output. Streaming is useful for long-running commands or real-time output, but success checks are short-lived (30s max). Streaming would also complicate the timeout implementation. |
-| Docker SDK `exec_create` + `exec_start` (low-level API) | The low-level API separates creation from execution and provides more control (e.g., `exec_inspect` for exit code). But `exec_run` wraps both and is simpler. The low-level API would only be needed if we required streaming exec output or fine-grained exec lifecycle control. Not needed for v1. |
+| Alternative                                                 | Why Rejected                                                                                                                                                                                                                                                                                                                  |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `exec_run(cmd="shell string")` with string splitting        | Violates no-shell-strings constraint. Docker SDK does accept a string and uses `shlex.split()`, but this is implicit and fragile (platform-dependent splitting, no quoting guarantees).                                                                                                                                       |
+| `exec_run(cmd=["sh", "-c", "some command"])`                | Wrapping in `sh -c` reintroduces shell interpretation — glob expansion, variable substitution, piping. This defeats the purpose of the typed command constraint. Only acceptable if the scenario explicitly requires shell features (not in v1).                                                                              |
+| `subprocess.run(["docker", "exec", container_id, ...])`     | Violates the no-shell-strings/subprocess constraint. Bypasses SDK connection pooling. Loses structured error handling.                                                                                                                                                                                                        |
+| `exec_run` with `stream=True` and line-by-line matching     | Adds complexity for no benefit when checking final output. Streaming is useful for long-running commands or real-time output, but success checks are short-lived (30s max). Streaming would also complicate the timeout implementation.                                                                                       |
+| Docker SDK `exec_create` + `exec_start` (low-level API)     | The low-level API separates creation from execution and provides more control (e.g., `exec_inspect` for exit code). But `exec_run` wraps both and is simpler. The low-level API would only be needed if we required streaming exec output or fine-grained exec lifecycle control. Not needed for v1.                          |
 | `asyncio.wait_for(asyncio.to_thread(exec_run), timeout=30)` | Functionally equivalent to the ThreadPoolExecutor approach but requires an async context. Either works. The sync version is chosen because the check runner iterates checks sequentially in a synchronous loop (run via `to_thread` from the API layer). If the check runner becomes fully async, this is a viable migration. |
-| `signal.alarm` for timeout | Only works on the main thread. The check runner executes inside a thread (called from the async API via `to_thread`). `signal.alarm` would raise `SIGALRM` on the main thread, not the worker thread. |
+| `signal.alarm` for timeout                                  | Only works on the main thread. The check runner executes inside a thread (called from the async API via `to_thread`). `signal.alarm` would raise `SIGALRM` on the main thread, not the worker thread.                                                                                                                         |
 
 ---
 
 ## Summary of Decisions
 
-| # | Topic | Decision |
-|---|---|---|
-| 1 | Action execution | Sequential execution with typed action→SDK mapping. Rollback stack with compensating undo closures. All created resources labelled `eduops.session=<uuid>`. |
-| 2 | Label-based cleanup | Fixed-order sweep: stop containers → remove containers → remove networks → remove volumes. Best-effort with `NotFound` handling. Idempotent. |
-| 3 | Signal handling | Use FastAPI lifespan post-`yield` for shutdown cleanup. Do not install custom signal handlers — let uvicorn handle SIGINT/SIGTERM and deliver the ASGI shutdown event. `atexit` as belt-and-suspenders fallback. |
-| 4 | Stale recovery | On startup (pre-`yield`), query Docker for any `eduops.session`-labelled resources across all resource types. Union session IDs, run standard cleanup for each. Block startup until complete. |
-| 5 | docker_exec checks | `container.exec_run(cmd=list[str])` with ThreadPoolExecutor 30s timeout. Check exit code, then match stdout against `expect_stdout` using string containment. No shell, no streaming. |
+| #   | Topic               | Decision                                                                                                                                                                                                         |
+| --- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Action execution    | Sequential execution with typed action→SDK mapping. Rollback stack with compensating undo closures. All created resources labelled `eduops.session=<uuid>`.                                                      |
+| 2   | Label-based cleanup | Fixed-order sweep: stop containers → remove containers → remove networks → remove volumes. Best-effort with `NotFound` handling. Idempotent.                                                                     |
+| 3   | Signal handling     | Use FastAPI lifespan post-`yield` for shutdown cleanup. Do not install custom signal handlers — let uvicorn handle SIGINT/SIGTERM and deliver the ASGI shutdown event. `atexit` as belt-and-suspenders fallback. |
+| 4   | Stale recovery      | On startup (pre-`yield`), query Docker for any `eduops.session`-labelled resources across all resource types. Union session IDs, run standard cleanup for each. Block startup until complete.                    |
+| 5   | docker_exec checks  | `container.exec_run(cmd=list[str])` with ThreadPoolExecutor 30s timeout. Check exit code, then match stdout against `expect_stdout` using string containment. No shell, no streaming.                            |
 
 ## Dependencies
 
 No new dependencies required — all patterns use the `docker` (Python SDK) package and Python stdlib (`concurrent.futures`, `threading`, `contextlib`, `atexit`).
-
 
 ---
 
@@ -1201,52 +1203,61 @@ No new dependencies required — all patterns use the `docker` (Python SDK) pack
 ## Topic 1: OpenAI-Compatible Client
 
 ### Decision
+
 Use the `openai` Python package (v1.0+) with custom `base_url`. Do not use `litellm` or raw `httpx`.
 
 ### Rationale
+
 The `openai` package natively supports `base_url`, making it a universal client for OpenAI, Gemini (via `/v1beta/openai/`), OpenRouter, and any compatible proxy. It provides structured output via `.parse()`, async support via `AsyncOpenAI`, built-in retries, and `httpx`-based timeout control. Adding `litellm` (~100+ transitive deps) for a single-user tool calling one provider at a time is unnecessary.
 
 ### Alternatives Considered
-| Alternative | Why Rejected |
-|---|---|
-| `litellm` | ~100+ transitive deps, provider routing complexity unnecessary for single-user local tool, version-coupling risk |
-| Raw `httpx` | Requires reimplementing retry logic, SSE parsing, error hierarchy, response parsing — all provided by `openai` package |
-| `anthropic` SDK | Only works with Anthropic native API, not OpenAI-compatible format; Anthropic reachable via OpenRouter |
+
+| Alternative     | Why Rejected                                                                                                           |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `litellm`       | ~100+ transitive deps, provider routing complexity unnecessary for single-user local tool, version-coupling risk       |
+| Raw `httpx`     | Requires reimplementing retry logic, SSE parsing, error hierarchy, response parsing — all provided by `openai` package |
+| `anthropic` SDK | Only works with Anthropic native API, not OpenAI-compatible format; Anthropic reachable via OpenRouter                 |
 
 ---
 
 ## Topic 2: Structured JSON Output from LLMs
 
 ### Decision
+
 Schema-in-prompt + `json.loads()` + Pydantic `model_validate()` as the primary path, with `response_format` (JSON schema) as an enhancement when the provider supports it. One automatic retry with validation errors fed back to the LLM per spec.
 
 ### Rationale
+
 Schema-in-prompt works universally across all OpenAI-compatible providers. Modern LLMs (GPT-4o, Claude 3.5, Gemini 1.5) produce valid JSON from schema-in-prompt >95% of the time. The retry mechanism (already mandated by spec) handles the remaining cases. `response_format` with `json_schema` type gives 100% schema compliance on supporting providers (OpenAI, some OpenRouter models) but isn't universally supported.
 
 Implementation: try `response_format={"type": "json_object"}` if available, embed full schema in system prompt regardless, parse with `json.loads()`, validate with Pydantic, retry once on failure.
 
 ### Alternatives Considered
-| Alternative | Why Rejected |
-|---|---|
-| `response_format` only (no fallback) | Breaks for providers that don't support it |
-| Function calling / tool use | Semantically wrong for scenario generation; variable provider support |
-| `instructor` library | Adds dependency for ~30 lines of retry logic |
+
+| Alternative                          | Why Rejected                                                          |
+| ------------------------------------ | --------------------------------------------------------------------- |
+| `response_format` only (no fallback) | Breaks for providers that don't support it                            |
+| Function calling / tool use          | Semantically wrong for scenario generation; variable provider support |
+| `instructor` library                 | Adds dependency for ~30 lines of retry logic                          |
 
 ---
 
 ## Topic 3: Socratic Coaching Prompt Design
 
 ### Decision
+
 Two separate system prompts — Socratic (default) and direct-answer (triggered by "Show Answer"). Backend switches prompts; user cannot manipulate mode via chat.
 
 ### Rationale
+
 LLMs follow unconditional system prompts more reliably than conditional ones. A single prompt with "be Socratic unless mode=direct" creates an exploitable seam — users could social-engineer the model. Two prompts eliminate this. The "Show Answer" action is a backend decision (UI button click), not a user message. Chat history is preserved across mode switches so the direct answer references prior Socratic exchanges.
 
 ### Alternatives Considered
-| Alternative | Why Rejected |
-|---|---|
-| Single prompt with mode flag | Exploitable by users; harder to tune |
-| Reset chat history on mode switch | Loses context from Socratic exchange |
+
+| Alternative                                 | Why Rejected                               |
+| ------------------------------------------- | ------------------------------------------ |
+| Single prompt with mode flag                | Exploitable by users; harder to tune       |
+| Reset chat history on mode switch           | Loses context from Socratic exchange       |
 | Append special user message for mode switch | Fragile, pollutes history, can be mimicked |
 
 ---
@@ -1254,23 +1265,27 @@ LLMs follow unconditional system prompts more reliably than conditional ones. A 
 ## Topic 4: LLM Review Prompt Design
 
 ### Decision
+
 Structured review prompt with separated context (scenario + docker inspect + logs) from instructions. Request output in three fixed sections: What Went Well (2-3 items), What Could Improve (1-2 items), Next Steps (1-2 items). Optionally request as JSON via a `Review` Pydantic model for reliable frontend parsing.
 
 ### Rationale
+
 Fixed section structure produces consistent output across models. Specificity instructions ("reference actual configuration") counteract generic praise. Bounded scope (2-3 items, 1-2 items) prevents both terse and essay-length reviews. Tying next-steps to scenario context creates learning progression rather than generic Docker advice.
 
 ### Alternatives Considered
-| Alternative | Why Rejected |
-|---|---|
-| Unstructured "review this" prompt | Inconsistent output format, unpredictable rendering |
-| Rubric-based numeric scoring | Feels judgmental; scores inconsistent across models |
-| Multi-turn review conversation | Over-engineered; coaching chat exists for interactive Q&A |
+
+| Alternative                       | Why Rejected                                              |
+| --------------------------------- | --------------------------------------------------------- |
+| Unstructured "review this" prompt | Inconsistent output format, unpredictable rendering       |
+| Rubric-based numeric scoring      | Feels judgmental; scores inconsistent across models       |
+| Multi-turn review conversation    | Over-engineered; coaching chat exists for interactive Q&A |
 
 ---
 
 ## Topic 5: Config File Format for LLM Settings
 
 ### Decision
+
 TOML at `~/.eduops/config.toml` with `[llm]` section containing `provider`, `api_key`, `model`, and optional `base_url`.
 
 ```toml
@@ -1284,52 +1299,54 @@ base_url = ""            # optional; auto-derived from provider
 Provider determines default `base_url`: openai → `api.openai.com/v1`, gemini → `generativelanguage.googleapis.com/v1beta/openai`, openrouter → `openrouter.ai/api/v1`, custom → must provide `base_url`. Support `EDUOPS_API_KEY` env var as override. `chmod 600` on config file.
 
 ### Rationale
+
 `provider` field simplifies UX (user picks from a list, doesn't need to know URLs). Enables provider-specific headers (OpenRouter needs `HTTP-Referer`). TOML is the Python ecosystem standard, readable via `tomllib` (stdlib in 3.11+), human-editable. Per-call settings (temperature, max_tokens) are hardcoded per use case in the prompt module, not user-configurable.
 
 ### Alternatives Considered
-| Alternative | Why Rejected |
-|---|---|
-| Environment variables only | Poor UX for non-developers, no interactive setup |
-| JSON config | No comments, not human-friendly for hand-editing |
-| YAML config | External dependency, implicit typing pitfalls |
+
+| Alternative                   | Why Rejected                                      |
+| ----------------------------- | ------------------------------------------------- |
+| Environment variables only    | Poor UX for non-developers, no interactive setup  |
+| JSON config                   | No comments, not human-friendly for hand-editing  |
+| YAML config                   | External dependency, implicit typing pitfalls     |
 | Keyring / OS credential store | Adds platform-specific complexity; v2 enhancement |
 
 ---
 
 ## Summary of All Decisions
 
-| Area | Topic | Decision |
-|---|---|---|
-| **SSE Streaming** | SSE pattern | `sse-starlette` `EventSourceResponse` + async generator |
-| **SSE Streaming** | Multiplexing | `asyncio.Queue` fan-in, one thread per container, Docker events watcher |
-| **SSE Streaming** | Disconnect cleanup | `finally` on `CancelledError`, `threading.Event`, `join(timeout=2)` |
-| **SSE Streaming** | Threading model | Explicit `threading.Thread` per container, `call_soon_threadsafe` bridge |
-| **Packaging** | Package structure | `src` layout, `eduops/static/` via hatchling `force-include` |
-| **Packaging** | Build workflow | Manual `npm run build` → `python -m build`; CI enforces sequence |
-| **Packaging** | CLI entry point | `[project.scripts] eduops = "eduops.cli:main"` + `__main__.py` |
-| **Packaging** | Heavy deps | `sentence-transformers[onnx]` replaces PyTorch with ONNX Runtime |
-| **Packaging** | Static serving | `StaticFiles(packages=[("eduops", "static")], html=True)` |
-| **Packaging** | Bundled data | Scenario JSON in `eduops/scenarios/`, embeddings in `eduops/data/` as base64 JSON |
-| **Docker Exec** | Action execution | Sequential with rollback stack, typed action→SDK mapping, labelled resources |
-| **Docker Exec** | Cleanup | Fixed-order sweep by label, best-effort with `NotFound` handling, idempotent |
-| **Docker Exec** | Signal handling | FastAPI lifespan post-`yield`; no custom signal handlers; `atexit` fallback |
-| **Docker Exec** | Stale recovery | Pre-`yield` scan for `eduops.session` labels across all resource types |
-| **Docker Exec** | docker_exec checks | `exec_run(cmd=list[str])`, ThreadPoolExecutor 30s timeout, stdout containment match |
-| **LLM Integration** | Client | `openai` package with custom `base_url` |
-| **LLM Integration** | Structured output | Schema-in-prompt + Pydantic + 1 retry; `response_format` as enhancement |
-| **LLM Integration** | Coaching prompt | Two separate system prompts (Socratic / direct-answer) |
-| **LLM Integration** | Review prompt | Three-section structured template; optional JSON output |
-| **LLM Integration** | Config format | TOML `[llm]` section with provider/api_key/model/base_url |
+| Area                | Topic              | Decision                                                                            |
+| ------------------- | ------------------ | ----------------------------------------------------------------------------------- |
+| **SSE Streaming**   | SSE pattern        | `sse-starlette` `EventSourceResponse` + async generator                             |
+| **SSE Streaming**   | Multiplexing       | `asyncio.Queue` fan-in, one thread per container, Docker events watcher             |
+| **SSE Streaming**   | Disconnect cleanup | `finally` on `CancelledError`, `threading.Event`, `join(timeout=2)`                 |
+| **SSE Streaming**   | Threading model    | Explicit `threading.Thread` per container, `call_soon_threadsafe` bridge            |
+| **Packaging**       | Package structure  | `src` layout, `eduops/static/` via hatchling `force-include`                        |
+| **Packaging**       | Build workflow     | Manual `npm run build` → `python -m build`; CI enforces sequence                    |
+| **Packaging**       | CLI entry point    | `[project.scripts] eduops = "eduops.cli:main"` + `__main__.py`                      |
+| **Packaging**       | Heavy deps         | `sentence-transformers[onnx]` replaces PyTorch with ONNX Runtime                    |
+| **Packaging**       | Static serving     | `StaticFiles(packages=[("eduops", "static")], html=True)`                           |
+| **Packaging**       | Bundled data       | Scenario JSON in `eduops/scenarios/`, embeddings in `eduops/data/` as base64 JSON   |
+| **Docker Exec**     | Action execution   | Sequential with rollback stack, typed action→SDK mapping, labelled resources        |
+| **Docker Exec**     | Cleanup            | Fixed-order sweep by label, best-effort with `NotFound` handling, idempotent        |
+| **Docker Exec**     | Signal handling    | FastAPI lifespan post-`yield`; no custom signal handlers; `atexit` fallback         |
+| **Docker Exec**     | Stale recovery     | Pre-`yield` scan for `eduops.session` labels across all resource types              |
+| **Docker Exec**     | docker_exec checks | `exec_run(cmd=list[str])`, ThreadPoolExecutor 30s timeout, stdout containment match |
+| **LLM Integration** | Client             | `openai` package with custom `base_url`                                             |
+| **LLM Integration** | Structured output  | Schema-in-prompt + Pydantic + 1 retry; `response_format` as enhancement             |
+| **LLM Integration** | Coaching prompt    | Two separate system prompts (Socratic / direct-answer)                              |
+| **LLM Integration** | Review prompt      | Three-section structured template; optional JSON output                             |
+| **LLM Integration** | Config format      | TOML `[llm]` section with provider/api_key/model/base_url                           |
 
 ## All New Dependencies
 
-| Package | Version | Purpose |
-|---|---|---|
-| `sse-starlette` | `>=2.0` | SSE with ping, send_timeout, disconnect handling |
-| `hatchling` | `>=1.26` | Build backend with `force-include` for frontend assets |
-| `sentence-transformers[onnx]` | latest | Embedding inference via ONNX Runtime (no PyTorch) |
-| `openai` | `>=1.0` | OpenAI-compatible LLM client |
-| `fastapi` | `>=0.110` | Web framework |
-| `uvicorn[standard]` | `>=0.27` | ASGI server |
-| `docker` | `>=7.0` | Python Docker SDK |
-| `httpx` | `>=0.27` | HTTP client (used by openai internally, also useful for port_responds checks) |
+| Package                       | Version   | Purpose                                                                       |
+| ----------------------------- | --------- | ----------------------------------------------------------------------------- |
+| `sse-starlette`               | `>=2.0`   | SSE with ping, send_timeout, disconnect handling                              |
+| `hatchling`                   | `>=1.26`  | Build backend with `force-include` for frontend assets                        |
+| `sentence-transformers[onnx]` | latest    | Embedding inference via ONNX Runtime (no PyTorch)                             |
+| `openai`                      | `>=1.0`   | OpenAI-compatible LLM client                                                  |
+| `fastapi`                     | `>=0.110` | Web framework                                                                 |
+| `uvicorn[standard]`           | `>=0.27`  | ASGI server                                                                   |
+| `docker`                      | `>=7.0`   | Python Docker SDK                                                             |
+| `httpx`                       | `>=0.27`  | HTTP client (used by openai internally, also useful for port_responds checks) |

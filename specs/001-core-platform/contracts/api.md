@@ -352,6 +352,7 @@ Send a message to the AI coach.
 ```
 
 The `show_answer` field triggers direct-answer mode (switches system prompt). Default `false` for Socratic coaching.
+If the user explicitly asks for the direct answer in `message`, the backend also triggers direct-answer mode for that response.
 
 **Response** `200 OK`:
 
