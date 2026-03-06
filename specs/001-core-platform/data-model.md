@@ -121,8 +121,9 @@ One row per scenario attempt. The session `id` is also used as the Docker resour
      └────────────┘        └───────────┘
 ```
 
-- `active` → `completed`: User submits, all checks pass, review generated, cleanup runs
-- `active` → `abandoned`: User clicks "End session" or process terminates with cleanup
+- Submit does NOT change status. On successful submit, `review_text` is populated (or overwritten if re-submitting) but the session stays `active` — containers keep running, workspace intact, chat functional. The user can inspect their work alongside the AI review, fix issues, and re-submit for a fresh evaluation.
+- `active` → `completed`: User explicitly ends session after a review has been generated. Cleanup runs (containers removed, networks removed, volumes removed, workspace optionally deleted). `review_text IS NOT NULL` distinguishes this from abandon.
+- `active` → `abandoned`: User clicks "End session" before submitting (no review), or process terminates. Cleanup runs.
 - No reverse transitions. A completed or abandoned session is final.
 - On stale recovery (crash without cleanup), `active` sessions found in DB are cleaned up and their status updated to `abandoned`.
 

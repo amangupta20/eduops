@@ -36,18 +36,19 @@ A learner installs eduops, runs it, opens the browser, and browses the bundled s
 
 ### User Story 2 — Submit a Solution and Receive AI Review (Priority: P2)
 
-While working on an active scenario, the learner completes the task and clicks "Submit" in the UI. The platform runs deterministic success checks (container running, port responds, etc.) and reports which passed and which failed. If checks pass, the platform collects Docker inspection data and container logs, sends them along with scenario context to the user-configured LLM, and displays an AI-generated review in the chat panel. The review covers what the user did well, what could be improved, and what to try next. The scenario is marked complete and cleanup runs automatically.
+While working on an active scenario, the learner completes the task and clicks "Submit" in the UI. The platform runs deterministic success checks (container running, port responds, etc.) and reports which passed and which failed. If checks pass, the platform collects Docker inspection data and container logs, sends them along with scenario context to the user-configured LLM, and displays an AI-generated review in the chat panel. The review covers what the user did well, what could be improved, and what to try next. The session remains active — containers keep running and the workspace stays intact so the user can cross-reference their work with the AI's feedback. Cleanup runs only when the user explicitly ends the session.
 
 **Why this priority**: Submission and review close the learning loop. Without this, the platform is just a scenario launcher — the coaching value comes from feedback on what the user actually did.
 
-**Independent Test**: With an active scenario running, complete the task correctly in a terminal, click Submit, verify checks run and pass, verify the LLM is called with inspection data, verify a review appears in chat, and verify cleanup removes all session-labelled resources.
+**Independent Test**: With an active scenario running, complete the task correctly in a terminal, click Submit, verify checks run and pass, verify the LLM is called with inspection data, verify a review appears in the UI. Verify containers remain running and the workspace is intact. Verify the user can still chat with the AI coach about the review. Then click "End Session" and verify cleanup removes all session resources.
 
 **Acceptance Scenarios**:
 
 1. **Given** a scenario is active and the user has completed the task, **When** the user clicks Submit, **Then** the platform runs all `success_checks` defined in the scenario and displays the results (pass/fail for each check).
 2. **Given** all success checks pass, **When** the review is generated, **Then** the platform collects `docker inspect` output and container logs, sends them with `review_context` to the configured LLM, and displays the review in the chat panel.
 3. **Given** one or more success checks fail, **When** the results are displayed, **Then** the user sees which specific checks failed with enough detail to understand what's wrong, and the scenario remains active (not auto-completed).
-4. **Given** a scenario is marked complete after a successful review, **When** cleanup runs, **Then** all session-labelled containers are stopped and removed, session networks and volumes are removed, the workspace directory is deleted, and the session is marked closed.
+4. **Given** a review has been generated, **When** the user views the session, **Then** containers remain running, the workspace is preserved, and the chat panel stays active so the user can inspect their work alongside the AI's feedback and ask follow-up questions.
+5. **Given** a review has been generated, **When** the user clicks "End Session," **Then** full cleanup runs (containers removed, networks removed, volumes removed), the user is prompted whether to keep or delete the workspace directory, and the session transitions to `completed`.
 
 ---
 
@@ -108,7 +109,7 @@ The learner decides to stop working on a scenario mid-way. They click "End sessi
 
 **Acceptance Scenarios**:
 
-1. **Given** a scenario is active, **When** the user clicks "End session," **Then** all containers labelled `eduops.session=<uuid>` are stopped and removed, all session networks and volumes are removed, the workspace directory is deleted, and the session status is set to `abandoned`.
+1. **Given** a scenario is active (whether or not a review has been generated), **When** the user clicks "End session," **Then** all session containers are force-removed, all session networks and volumes are removed, the user is prompted whether to keep or delete the workspace directory, and the session status is set to `completed` (if a review exists) or `abandoned` (if not). Docker images are left in place.
 2. **Given** no active session exists, **When** the user opens the UI, **Then** the "End session" control is not shown, and the user can browse and start a new scenario.
 3. **Given** the eduops process was killed without clean shutdown (stale session), **When** the user runs `eduops start`, **Then** the platform detects the orphaned session, cleans up all resources found via label-based Docker queries, and allows the user to proceed.
 
@@ -124,6 +125,7 @@ The learner decides to stop working on a scenario mid-way. They click "End sessi
 - What happens when the LLM generates a scenario with an unapproved image or unrecognised action/check type? The platform retries once with the validation error fed back to the LLM. If the second attempt also fails, the scenario is rejected, never executed, and the user sees the specific validation errors with the option to rephrase.
 - What happens when `success_checks` fail because the user's work is partially correct? Each check reports independently so the user knows exactly which checks passed and which failed.
 - What happens when the host port requested by a scenario is already in use? The setup action must fail clearly and not leave orphaned containers.
+- What happens when the user submits successfully (review generated) but closes the browser or the eduops process before explicitly ending the session? Containers remain running and the workspace remains on disk. On next `eduops start`, stale recovery detects the still-active session and cleans up. This is identical to the existing stale-session recovery path.
 
 ## Requirements _(mandatory)_
 
@@ -143,13 +145,13 @@ The learner decides to stop working on a scenario mid-way. They click "End sessi
 - **FR-012**: The UI MUST provide an explicit "Show Answer" button that, when activated, instructs the LLM to reveal the direct solution. Direct-answer mode MUST only be triggered by the explicit UI button — not by message-text analysis — to prevent accidental answer reveals when the user is still working through the problem.
 - **FR-013**: System MUST track shown hints per session and never repeat the same hint within a session. In Socratic mode, the backend MUST deterministically select the next unseen hint from the scenario's `hints` array, inject that hint text into the LLM prompt, and record the `hint_index` only after a successful assistant response is persisted.
 - **FR-014**: System MUST run deterministic `success_checks` when the user submits a solution, reporting pass/fail per check with enough detail for the user to understand what failed. Each check MUST use a 30-second timeout with a 2-second polling interval before declaring failure. Blocking check execution MUST run off the FastAPI/ASGI event loop so SSE log streaming and other requests remain responsive during submission.
-- **FR-015**: System MUST collect `docker inspect` output and container logs after successful checks and send them, along with `review_context`, to the configured LLM to generate a review.
+- **FR-015**: System MUST collect `docker inspect` output and container logs after successful checks and send them, along with `review_context`, to the configured LLM to generate a review. After generating and persisting the review, the session MUST remain `active` — containers keep running, the workspace stays intact, and the chat panel stays functional — so the user can cross-reference their work with the AI's feedback. Re-submission is allowed: the user can fix issues and submit again, and the new review overwrites the previous one.
 - **FR-016**: System MUST persist the AI review with the session record once generated.
 - **FR-017**: System MUST support LLM-based scenario generation from a user-provided description and difficulty level, constrained to the approved image list and the four allowed check types.
 - **FR-018**: System MUST validate all LLM-generated scenarios against the typed schema before persisting or executing — rejecting any scenario with unrecognised action types, unapproved check types, or unapproved images.
 - **FR-019**: When an LLM-generated scenario fails validation, the system MUST automatically retry once by sending the validation errors back to the LLM for correction. If the second attempt also fails validation, the system MUST display the specific validation errors to the user and allow them to rephrase their request.
 - **FR-020**: System MUST compute and store an embedding for each newly generated scenario at creation time.
-- **FR-021**: System MUST run cleanup in deterministic order — stop and remove expected_containers by name → stop containers → remove containers → remove networks → remove volumes → delete workspace directory → mark session closed in SQLite — on normal completion, explicit abandon, and process termination (`SIGINT`/`SIGTERM`). Cleanup of expected containers by name MUST gracefully skip any that no longer exist.
+- **FR-021**: System MUST run cleanup in deterministic order — force-remove expected_containers by name → force-remove labelled containers → remove labelled networks → remove labelled volumes → optionally delete workspace directory (user-prompted) → mark session closed in SQLite. Cleanup runs on explicit "End Session" (from either active or reviewed state), and on process termination (`SIGINT`/`SIGTERM`). Cleanup does NOT run on submit. Cleanup of expected containers by name MUST gracefully skip any that no longer exist. Docker images are NOT removed (reused across sessions).
 - **FR-022**: System MUST detect stale sessions on startup and clean up orphaned Docker resources via label-based queries AND expected container names (from the scenario's `schema_json` persisted in DB) before allowing new scenario starts.
 - **FR-023**: System MUST enforce single active session — the user cannot start a new scenario while another session is active or stale.
 - **FR-024**: System MUST accept LLM configuration (API key, endpoint, model) from a TOML configuration file at `~/.eduops/config.toml`, and MUST NOT proxy, store, or transmit the API key anywhere beyond the configured endpoint.
@@ -190,6 +192,6 @@ The learner decides to stop working on a scenario mid-way. They click "End sessi
 - **SC-003**: The live log panel displays container output within 2 seconds of it being written inside a container.
 - **SC-004**: Semantic search returns the most relevant bundled scenario as the top result for at least 80% of natural-language queries that describe a bundled scenario's topic.
 - **SC-005**: The AI coaching response appears in the chat panel within 10 seconds of the user sending a question (network latency to LLM provider excluded).
-- **SC-006**: Scenario cleanup removes 100% of session-labelled Docker resources (containers, networks, volumes), all containers named in `expected_containers`, and the workspace directory — verified by post-cleanup Docker queries returning zero results for the session label and zero running containers matching expected names.
+- **SC-006**: Scenario cleanup removes 100% of session-labelled Docker resources (containers, networks, volumes), all containers named in `expected_containers`, and (when `cleanup_workspace` is requested) the workspace directory — verified by post-cleanup Docker queries returning zero results for the session label and zero running containers matching expected names. Docker images are NOT removed.
 - **SC-007**: LLM-generated scenarios that violate the approved image list or use unapproved action/check types are rejected 100% of the time before any Docker operation is performed.
 - **SC-008**: Stale session recovery at startup correctly identifies and cleans up orphaned resources from a previous crashed session within 15 seconds.

@@ -158,9 +158,9 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ## Phase 4: User Story 2 — Submit a Solution and Receive AI Review (Priority: P2)
 
-**Goal**: The user clicks Submit, deterministic checks run, and on success the LLM generates a review. Cleanup runs automatically after completion.
+**Goal**: The user clicks Submit, deterministic checks run, and on success the LLM generates a review. The session stays active so the user can inspect their work alongside the feedback. Cleanup is deferred to explicit "End Session."
 
-**Independent Test**: With an active scenario, complete the task, click Submit, verify checks pass, verify LLM review appears, verify cleanup removes all session-labelled resources.
+**Independent Test**: With an active scenario, complete the task, click Submit, verify checks pass, verify LLM review appears, verify containers remain running and workspace intact, verify the user can still chat. Then click "End Session" and verify full cleanup.
 
 ### Success Checks
 
@@ -171,7 +171,7 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ### Cleanup Service
 
-- [ ] T055 [P] [US2] Implement `cleanup_session()` in `backend/src/eduops/services/cleanup.py` — deterministic order: stop and remove expected_containers by name (skip if not found) → stop labelled containers → remove labelled containers → remove labelled networks → remove labelled volumes → delete workspace directory → update session status in DB; labelled resources via filter `eduops.session=<id>`, expected containers by name from scenario schema_json
+- [ ] T055 [P] [US2] Implement `cleanup_session()` in `backend/src/eduops/services/cleanup.py` — accept optional `keep_workspace: bool` (default `False`); deterministic order: force-remove expected_containers by name (skip if not found) → force-remove labelled containers → remove labelled networks → remove labelled volumes → if not `keep_workspace`, delete workspace directory → update session status in DB (`completed` if `review_text IS NOT NULL`, else `abandoned`); labelled resources via filter `eduops.session=<id>`, expected containers by name from scenario schema_json; Docker images are NOT removed (reused across sessions)
 - [ ] T056 [US2] Implement `cleanup_stale_sessions()` in `backend/src/eduops/services/cleanup.py` — query DB for `status='active'` sessions, load scenario schema_json for expected_containers, call `cleanup_session()` for each (covering both labelled and expected-name resources), log recovered sessions
 - [ ] T057 [US2] Register SIGINT/SIGTERM signal handlers for cleanup in `backend/src/eduops/services/cleanup.py` — on signal, run `cleanup_session()` for active session then exit; integrate as importable `register_signal_handlers()` function
 
@@ -183,16 +183,16 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ### Submit API
 
-- [ ] T061 [US2] Implement `POST /api/sessions/{session_id}/submit` in `backend/src/eduops/api/sessions.py` — validate session active, run `run_checks()` via `await asyncio.to_thread(...)` (or equivalent executor call) so blocking check timeouts do not block FastAPI's event loop, if all pass: collect inspect data + logs → `generate_review()` → persist review → cleanup → return completed; if any fail: return checks with null review, status stays active
+- [ ] T061 [US2] Implement `POST /api/sessions/{session_id}/submit` in `backend/src/eduops/api/sessions.py` — validate session active, run `run_checks()` via `await asyncio.to_thread(...)` so blocking check timeouts do not block FastAPI's event loop; if all pass: collect inspect data + logs → `generate_review()` → persist review (overwrite any previous review) → return session_status `active` with review (no cleanup, no status change — containers keep running, workspace intact); if any fail: return checks with null review, status stays active. Re-submission is allowed so users can fix issues and get a fresh AI evaluation
 
 ### Frontend (US2)
 
 - [ ] T062 [P] [US2] Add `submitSession()` API function to `frontend/src/services/api.ts` — POST to /api/sessions/:id/submit, typed response with checks array, review, session_status
 - [ ] T063 [P] [US2] Implement SubmitButton component in `frontend/src/components/SubmitButton.tsx` — loading spinner during check execution, display pass/fail results per check with detail messages
 - [ ] T064 [P] [US2] Implement ReviewPanel component in `frontend/src/components/ReviewPanel.tsx` — three sections: what went well (green), what could improve (amber), next steps (blue)
-- [ ] T065 [US2] Integrate submit flow and review display into `frontend/src/components/ActiveSession.tsx` — wire SubmitButton, show checks inline, render ReviewPanel on success, navigate to Home after completion
+- [ ] T065 [US2] Integrate submit flow and review display into `frontend/src/components/ActiveSession.tsx` — wire SubmitButton, show checks inline, render ReviewPanel on success; keep session page active (do NOT navigate to Home) so user can inspect their work, chat with the AI coach, fix issues, and re-submit for a fresh review
 
-**Checkpoint**: User Stories 1 and 2 complete — full learning loop: browse → start → work → submit → review → cleanup
+**Checkpoint**: User Stories 1 and 2 complete — full learning loop: browse → start → work → submit → review → inspect → end session → cleanup
 
 ---
 
@@ -287,13 +287,13 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ## Phase 8: User Story 6 — Abandon a Session and Clean Up (Priority: P6)
 
-**Goal**: The user clicks "End session" mid-way, all Docker resources are cleaned up, and they can start a new scenario. Stale sessions from crashes are recovered on startup.
+**Goal**: The user clicks "End session" (from active or reviewed state), all Docker resources are cleaned up (with an option to keep the workspace), and they can start a new scenario. Stale sessions from crashes are recovered on startup.
 
-**Independent Test**: Start a scenario, click "End session," verify all session-labelled Docker resources removed, workspace deleted, new scenario can start.
+**Independent Test**: Start a scenario, click "End session," verify all session-labelled Docker resources removed, verify workspace prompt works, verify new scenario can start. Repeat with a reviewed session (submit first, then end).
 
 ### Abandon API
 
-- [ ] T089 [US6] Implement `DELETE /api/sessions/{session_id}` endpoint in `backend/src/eduops/api/sessions.py` — validate session exists and active (404/409), call `cleanup_session()`, update status to `abandoned`, return per contract
+- [ ] T089 [US6] Implement `DELETE /api/sessions/{session_id}` endpoint in `backend/src/eduops/api/sessions.py` — validate session exists and `status='active'` (404/409), accept optional JSON body `{cleanup_workspace: bool}` (default `false`), call `cleanup_session(keep_workspace=not cleanup_workspace)`, status set to `completed` if `review_text IS NOT NULL` else `abandoned`, return per contract with `workspace_kept` field
 
 ### Stale Recovery
 
@@ -301,8 +301,8 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ### Frontend (US6)
 
-- [ ] T091 [P] [US6] Add `deleteSession()` API function to `frontend/src/services/api.ts` — DELETE /api/sessions/:id
-- [ ] T092 [P] [US6] Implement "End Session" button with confirmation dialog in `frontend/src/components/ActiveSession.tsx` — call `deleteSession()`, show cleanup progress, navigate to Home
+- [ ] T091 [P] [US6] Add `deleteSession()` API function to `frontend/src/services/api.ts` — DELETE /api/sessions/:id with optional `{cleanup_workspace: bool}` body
+- [ ] T092 [P] [US6] Implement "End Session" button with confirmation dialog in `frontend/src/components/ActiveSession.tsx` — dialog includes workspace path display and checkbox "Delete workspace files at {path}" (unchecked by default); call `deleteSession(id, {cleanup_workspace})`, show cleanup progress, navigate to Home
 - [ ] T093 [US6] Handle active session state on Home page mount in `frontend/src/pages/Home.tsx` — check `getActiveSession()`, if active show banner with resume/end options, prevent new scenario start
 
 **Checkpoint**: All 6 user stories complete — full session lifecycle with crash recovery
@@ -421,7 +421,7 @@ T051: Session page
 
 1. Setup + Foundational → Foundation ready
 2. Add US1 → **MVP!** (scenario browser + launcher + live logs)
-3. Add US2 → Full learning loop (submit + review + cleanup)
+3. Add US2 → Full learning loop (submit + review + inspect)
 4. Add US3 → Interactive coaching
 5. Add US4 → Infinite custom scenarios
 6. Add US5 → Smart search

@@ -242,6 +242,8 @@ Get the currently active session, if any.
 
 Submit the current solution for checking and review.
 
+**Note**: On success, the session remains `active` — containers keep running, the workspace stays intact, and the chat panel stays functional. This lets the user inspect their work alongside the AI's review. Cleanup runs only when the user explicitly ends the session via `DELETE`. Re-submission is rejected once a review exists.
+
 **Response** `200 OK` (checks passed, review generated):
 
 ```json
@@ -266,7 +268,7 @@ Submit the current solution for checking and review.
     "what_could_improve": ["string"],
     "next_steps": ["string"]
   },
-  "session_status": "completed"
+  "session_status": "active"
 }
 ```
 
@@ -310,17 +312,32 @@ Submit the current solution for checking and review.
 
 ### `DELETE /api/sessions/{session_id}`
 
-Abandon/end the active session. Triggers cleanup.
+End the active session and trigger cleanup. Works for sessions in any `active` state (whether or not a review has been generated). Cleanup removes all containers (force-remove), networks, and volumes. Workspace deletion is controlled by the `cleanup_workspace` flag. Docker images are left in place (reused across sessions).
+
+**Request Body** (optional):
+
+```json
+{
+  "cleanup_workspace": false
+}
+```
+
+| Field               | Type    | Default | Notes                                                                                                          |
+| ------------------- | ------- | ------- | -------------------------------------------------------------------------------------------------------------- |
+| `cleanup_workspace` | boolean | `false` | If `true`, delete the workspace directory. If `false` (default), preserve it. Frontend should prompt the user. |
 
 **Response** `200 OK`:
 
 ```json
 {
   "id": "uuid",
-  "status": "abandoned",
-  "cleanup_performed": true
+  "status": "completed | abandoned",
+  "cleanup_performed": true,
+  "workspace_kept": true
 }
 ```
+
+`status` is `completed` if a review was generated (user submitted successfully), `abandoned` otherwise.
 
 **Response** `404 Not Found`:
 
