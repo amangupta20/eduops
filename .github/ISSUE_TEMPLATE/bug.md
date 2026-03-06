@@ -30,30 +30,30 @@ labels: bug
 Create `.cursor/rules/architecture.mdc`:
 ```
 
-# FOSSOPS Architecture Rules
+# EDUOPS Architecture Rules
 
 Read docs/ARCHITECTURE.md and docs/constitution.md before writing any code.
 Read the relevant spec file in docs/specs/ before implementing any feature.
 
 ## Module Boundaries — Blocking Rules
 
-- fossops/llm/client.py is the ONLY file permitted to make HTTP requests to LLM providers.
+- eduops/llm/client.py is the ONLY file permitted to make HTTP requests to LLM providers.
   hints.py, chat.py, reviewer.py, generator.py all call client.py — never the API directly.
 
-- fossops/docker/client.py is the ONLY file that instantiates DockerClient.
-  All other files in fossops/docker/ import the client from here.
+- eduops/docker/client.py is the ONLY file that instantiates DockerClient.
+  All other files in eduops/docker/ import the client from here.
 
-- fossops/session/store.py is the ONLY file that imports sqlite3 or runs SQL.
+- eduops/session/store.py is the ONLY file that imports sqlite3 or runs SQL.
   session/manager.py calls store functions. Nothing outside session/ touches the DB.
 
-- fossops/config.py is the ONLY file that reads environment variables or config files.
+- eduops/config.py is the ONLY file that reads environment variables or config files.
   All other modules receive config values as function arguments.
 
-- fossops/api/ route handlers contain NO business logic.
+- eduops/api/ route handlers contain NO business logic.
   They call one module function and return the result. That is all.
 
-- fossops/scenarios/validator.py MUST be called before any setup_actions are passed
-  to fossops/docker/executor.py. The executor raises if it receives an unvalidated object.
+- eduops/scenarios/validator.py MUST be called before any setup_actions are passed
+  to eduops/docker/executor.py. The executor raises if it receives an unvalidated object.
 
 ## Frontend Rules
 
@@ -73,7 +73,7 @@ Read the relevant spec file in docs/specs/ before implementing any feature.
 Create `.cursor/rules/conventions.mdc`:
 ```
 
-# FOSSOPS Conventions
+# EDUOPS Conventions
 
 ## Python
 
@@ -108,7 +108,7 @@ Create `.cursor/rules/conventions.mdc`:
 Create `.cursor/rules/forbidden.mdc`:
 ```
 
-# FOSSOPS — Never Do These
+# EDUOPS — Never Do These
 
 - Never use subprocess, os.system, or shell=True for Docker operations.
   Use the Docker SDK exclusively.
@@ -116,13 +116,13 @@ Create `.cursor/rules/forbidden.mdc`:
 - Never hardcode API keys, base URLs, or model names.
   These come from config.py only.
 
-- Never make LLM HTTP calls outside fossops/llm/client.py.
+- Never make LLM HTTP calls outside eduops/llm/client.py.
 
-- Never import sqlite3 outside fossops/session/store.py.
+- Never import sqlite3 outside eduops/session/store.py.
 
-- Never import the Docker SDK outside the fossops/docker/ directory.
+- Never import the Docker SDK outside the eduops/docker/ directory.
 
-- Never read os.environ outside fossops/config.py.
+- Never read os.environ outside eduops/config.py.
 
 - Never write raw shell strings into scenario JSON.
   setup_actions are typed objects only.
