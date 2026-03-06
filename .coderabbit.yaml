@@ -1,7 +1,7 @@
 reviews:
   instructions: |
     This project uses Spec-Driven Development via GitHub Spec Kit.
-    Specs live in docs/. Tasks live in docs/tasks.md.
+    Specs live in root Tasks live in specs/feature/tasks.md.
 
     On every PR enforce the following:
 
