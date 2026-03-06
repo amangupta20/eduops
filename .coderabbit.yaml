@@ -1,0 +1,28 @@
+reviews:
+  instructions: |
+    This project uses Spec-Driven Development via GitHub Spec Kit.
+    Specs live in docs/. Tasks live in docs/tasks.md.
+
+    On every PR enforce the following:
+
+    BLOCKING — fail the PR if any of these are violated:
+    - feature/* branches must target dev, never main
+    - Only dev may target main
+    - No hardcoded API keys, model names, base URLs, or credentials anywhere
+    - All LLM calls must go through eduops/llm/client.py only
+    - No raw shell strings in any scenario JSON or Python code
+    - No subprocess calls or shell=True for Docker operations
+    - docker SDK must only be imported inside the eduops/docker/ directory
+    - sqlite3 must only be imported inside eduops/session/store.py
+    - os.environ and config file reads must only appear in eduops/config.py
+    - api/ route handlers must contain no business logic beyond calling a module function
+    - React components must not call fetch() directly — all API calls go through src/api/
+    - Commit messages not following Conventional Commits format
+
+    WARNINGS — flag but do not block:
+    - New Python functions without docstrings
+    - New feature without a corresponding entry in docs/specs/
+
+  auto_review:
+    enabled: true
+    drafts: false
