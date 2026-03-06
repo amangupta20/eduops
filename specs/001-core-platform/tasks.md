@@ -37,7 +37,7 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 **Purpose**: Project initialization, dependency declaration, and basic directory scaffolding
 
-- [ ] T001 Create backend package in `backend/` — `pyproject.toml` with hatchling build, dependencies (fastapi, uvicorn[standard], docker, sentence-transformers[onnx], openai, httpx, sse-starlette, tomli, pydantic), [dev] extras (pytest, ruff, mypy), entry point `eduops = "eduops.cli:main"`; `src/eduops/__init__.py` with version; `src/eduops/__main__.py` invoking `cli.main()`
+- [x] T001 Create backend package in `backend/` — `pyproject.toml` with hatchling build, dependencies (fastapi, uvicorn[standard], docker, sentence-transformers[onnx], openai, httpx, sse-starlette, tomli, pydantic), [dev] extras (pytest, ruff, mypy), entry point `eduops = "eduops.cli:main"`; `src/eduops/__init__.py` with version; `src/eduops/__main__.py` invoking `cli.main()`
 - [ ] T002 [P] Scaffold frontend Vite + React + TypeScript project in `frontend/` — `package.json`, `vite.config.ts` (@ path alias, Tailwind CSS plugin, /api proxy to localhost:7337), `tsconfig.json`, `index.html`
 - [ ] T003 [P] Initialise shadcn/ui in `frontend/` — `components.json`, Tailwind CSS v4 with `@tailwindcss/vite`, install base components (button, card, badge, input, scroll-area, separator, dialog, toast) in `frontend/src/components/ui/`
 - [ ] T004 [P] Create frontend routing skeleton in `frontend/src/main.tsx` and `frontend/src/App.tsx` — react-router BrowserRouter with routes: `/` → Home, `/session/:id` → Session
