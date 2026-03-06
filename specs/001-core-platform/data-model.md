@@ -84,14 +84,14 @@ The scenario catalogue. Populated at startup from bundled JSON files; supplement
 
 One row per scenario attempt. The session `id` is also used as the Docker resource label value (`eduops.session=<uuid>`).
 
-| Column           | Type | Constraints                                                   | Notes                                               |
-| ---------------- | ---- | ------------------------------------------------------------- | --------------------------------------------------- |
-| `id`             | TEXT | PRIMARY KEY                                                   | UUID v4, also used as Docker label value            |
-| `scenario_id`    | TEXT | NOT NULL, FOREIGN KEY → scenarios.id                          | Which scenario is being attempted                   |
-| `status`         | TEXT | NOT NULL, CHECK(status IN ('active','completed','abandoned')) | Current session state                               |
-| `workspace_path` | TEXT | NOT NULL                                                      | Absolute path: `~/.eduops/workspaces/<session-id>/` |
-| `started_at`     | TEXT | NOT NULL                                                      | ISO 8601 timestamp                                  |
-| `completed_at`   | TEXT |                                                               | ISO 8601 timestamp, NULL until session ends         |
+| Column           | Type | Constraints                                                   | Notes                                                                                                                                    |
+| ---------------- | ---- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`             | TEXT | PRIMARY KEY                                                   | UUID v4, also used as Docker label value                                                                                                 |
+| `scenario_id`    | TEXT | NOT NULL, FOREIGN KEY → scenarios.id                          | Which scenario is being attempted                                                                                                        |
+| `status`         | TEXT | NOT NULL, CHECK(status IN ('active','completed','abandoned')) | Current session state                                                                                                                    |
+| `workspace_path` | TEXT | NOT NULL                                                      | Absolute path: `~/.eduops/workspaces/<session-id>/`                                                                                      |
+| `started_at`     | TEXT | NOT NULL                                                      | ISO 8601 timestamp                                                                                                                       |
+| `completed_at`   | TEXT |                                                               | ISO 8601 timestamp, NULL until session ends                                                                                              |
 | `review_text`    | TEXT |                                                               | LLM review as plain text (markdown), NULL until successful submit. Stored as human-readable text so the user can read and improve on it. |
 
 **Indexes**:
@@ -319,6 +319,7 @@ class ScenarioSchema(BaseModel):
     tags: list[str]
     workspace_files: list[WorkspaceFile] = []
     setup_actions: list[SetupAction]
+    expected_containers: list[str] = []  # Container names the user is expected to create
     success_checks: list[SuccessCheck]
     hints: list[str] = []
     review_context: str = ""

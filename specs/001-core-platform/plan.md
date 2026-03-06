@@ -81,11 +81,11 @@ backend/
 │       │   ├── catalogue.py     # Scenario catalogue (load bundled, upsert, search)
 │       │   ├── docker_exec.py   # Docker SDK action executor (setup_actions)
 │       │   ├── checks.py        # Success check runner (four types)
-│       │   ├── cleanup.py       # Label-based cleanup, lifespan shutdown cleanup, stale recovery
+│       │   ├── cleanup.py       # Label-based + expected-container-name cleanup, shutdown cleanup, stale recovery
 │       │   ├── llm_coaching.py  # LLM chat/hint/review integration
 │       │   ├── embedding.py     # sentence-transformers embedding + cosine search
 │       │   ├── generation.py    # LLM scenario generation + validation + retry
-│       │   ├── logs.py          # SSE log streaming from docker logs -f
+│       │   ├── logs.py          # SSE log streaming from docker logs -f (labelled + expected containers)
 │       │   └── session.py       # Session lifecycle (create, get active, enforce single)
 │       ├── api/
 │       │   ├── health.py        # GET /health

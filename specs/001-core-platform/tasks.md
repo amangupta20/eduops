@@ -70,7 +70,7 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 - [ ] T014 [P] Define SetupAction discriminated union in `backend/src/eduops/models/scenario.py` — PullImage, BuildImage, CreateNetwork, CreateVolume, RunContainer Pydantic models with `action` literal discriminator field
 - [ ] T015 [P] Define SuccessCheck discriminated union in `backend/src/eduops/models/scenario.py` — ContainerRunning, PortResponds, DockerExec (command as `list[str]`), FileInWorkspace Pydantic models with `type` literal discriminator field
-- [ ] T016 Define ScenarioSchema and WorkspaceFile models in `backend/src/eduops/models/scenario.py` — ScenarioSchema aggregating setup_actions, success_checks, hints, review_context, workspace_files; `validate_approved_images(schema, approved_list)` function checking all image references against approved list
+- [ ] T016 Define ScenarioSchema and WorkspaceFile models in `backend/src/eduops/models/scenario.py` — ScenarioSchema aggregating setup_actions, expected_containers (`list[str]`, default `[]`), success_checks, hints, review_context, workspace_files; `validate_approved_images(schema, approved_list)` function checking all image references against approved list
 - [ ] T017 [P] Define Session, CheckResult, and Review Pydantic models in `backend/src/eduops/models/session.py` — Session with status enum (active/completed/abandoned), CheckResult with check_type/check_name/passed/message, Review with what_went_well/what_could_improve/next_steps (each a list of strings)
 
 ### Application Shell
@@ -120,8 +120,8 @@ Tasks below reinforce this by: one function per task where possible, services sp
 ### SSE Log Streaming
 
 - [ ] T035 [P] [US1] Implement single-container log follower thread in `backend/src/eduops/services/logs.py` — `_follow_container_logs(container, queue, loop, cancel_event)` reading `container.logs(stream=True, follow=True, timestamps=True, tail=100)`, pushing LogEvent objects to asyncio.Queue via `loop.call_soon_threadsafe()`, handling container removal and cancel_event
-- [ ] T036 [US1] Implement container discovery and Docker events watcher in `backend/src/eduops/services/logs.py` — discover existing containers by label, spawn follower thread per container; watch `client.events(filters={"label": ...})` in a thread for `start`/`die` events, dynamically add/remove followers
-- [ ] T037 [US1] Implement log multiplexer async generator in `backend/src/eduops/services/logs.py` — `stream_session_logs(session_id)` async generator consuming from shared asyncio.Queue, yielding SSE-formatted events; handle QueueFull backpressure with drop+warn; cleanup all threads and cancel_event in `finally` block per research.md Topic 3
+- [ ] T036 [US1] Implement container discovery and Docker events watcher in `backend/src/eduops/services/logs.py` — discover existing containers by label AND by expected_containers names (from scenario schema), spawn follower thread per container; watch `client.events()` (unfiltered) in a thread for `start`/`die` events, match against label OR expected names, dynamically add/remove followers
+- [ ] T037 [US1] Implement log multiplexer async generator in `backend/src/eduops/services/logs.py` — `stream_session_logs(session_id, expected_containers)` async generator consuming from shared asyncio.Queue, yielding SSE-formatted events; handle QueueFull backpressure with drop+warn; cleanup all threads and cancel_event in `finally` block per research.md Topic 3
 - [ ] T038 [US1] Implement `GET /api/sessions/{session_id}/logs` SSE endpoint in `backend/src/eduops/api/logs.py` — wrap `stream_session_logs()` with `EventSourceResponse(ping=15, send_timeout=30)`, set `Cache-Control` and `X-Accel-Buffering` headers, check `request.is_disconnected()` as safety guard
 
 ### Embedding Service
@@ -130,9 +130,9 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ### Bundled Content
 
-- [ ] T040 [P] [US1] Create bundled scenario JSON files 1–4 in `backend/src/eduops/scenarios/` — (1) running containers (easy), (2) port bindings (easy), (3) bind mounts (easy), (4) named volumes (medium); each with typed setup_actions, success_checks, hints, review_context
-- [ ] T041 [P] [US1] Create bundled scenario JSON files 5–7 in `backend/src/eduops/scenarios/` — (5) Dockerfile basics (easy), (6) image building (medium), (7) container debugging with build_image fault injection (medium)
-- [ ] T042 [P] [US1] Create bundled scenario JSON files 8–10 in `backend/src/eduops/scenarios/` — (8) environment variables (medium), (9) networking two containers (hard), (10) multi-step workflows (hard); collectively all 10 must exercise all four check types and all three difficulty levels
+- [ ] T040 [P] [US1] Create bundled scenario JSON files 1–4 in `backend/src/eduops/scenarios/` — (1) running containers (easy), (2) port bindings (easy), (3) bind mounts (easy), (4) named volumes (medium); each with typed setup_actions, expected_containers, success_checks, hints, review_context
+- [ ] T041 [P] [US1] Create bundled scenario JSON files 5–7 in `backend/src/eduops/scenarios/` — (5) Dockerfile basics (easy), (6) image building (medium), (7) container debugging with build_image fault injection (medium); each with expected_containers listing user-created container names
+- [ ] T042 [P] [US1] Create bundled scenario JSON files 8–10 in `backend/src/eduops/scenarios/` — (8) environment variables (medium), (9) networking two containers (hard), (10) multi-step workflows (hard); each with expected_containers; collectively all 10 must exercise all four check types and all three difficulty levels
 - [ ] T043 [P] [US1] Create embedding precomputation script in `backend/scripts/compute_embeddings.py` — optional dev utility to verify embedding dimensions and model consistency; not required at runtime since embeddings are computed at startup by the embedding model
 
 ### App Wiring
@@ -171,8 +171,8 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ### Cleanup Service
 
-- [ ] T055 [P] [US2] Implement `cleanup_session()` in `backend/src/eduops/services/cleanup.py` — deterministic order: stop containers → remove containers → remove networks → remove volumes → delete workspace directory → update session status in DB; all via label filter `eduops.session=<id>`
-- [ ] T056 [US2] Implement `cleanup_stale_sessions()` in `backend/src/eduops/services/cleanup.py` — query DB for `status='active'` sessions, call `cleanup_session()` for each, log recovered sessions
+- [ ] T055 [P] [US2] Implement `cleanup_session()` in `backend/src/eduops/services/cleanup.py` — deterministic order: stop and remove expected_containers by name (skip if not found) → stop labelled containers → remove labelled containers → remove labelled networks → remove labelled volumes → delete workspace directory → update session status in DB; labelled resources via filter `eduops.session=<id>`, expected containers by name from scenario schema_json
+- [ ] T056 [US2] Implement `cleanup_stale_sessions()` in `backend/src/eduops/services/cleanup.py` — query DB for `status='active'` sessions, load scenario schema_json for expected_containers, call `cleanup_session()` for each (covering both labelled and expected-name resources), log recovered sessions
 - [ ] T057 [US2] Register SIGINT/SIGTERM signal handlers for cleanup in `backend/src/eduops/services/cleanup.py` — on signal, run `cleanup_session()` for active session then exit; integrate as importable `register_signal_handlers()` function
 
 ### LLM Client & Review
@@ -243,7 +243,7 @@ Tasks below reinforce this by: one function per task where possible, services sp
 ### Scenario Generation Service
 
 - [ ] T076 [P] [US4] Implement LLM scenario generation prompt builder in `backend/src/eduops/services/generation.py` — `_build_generation_prompt(description, difficulty, approved_images)` constructing messages with ScenarioSchema JSON schema, approved image list, four allowed check types, and example scenario
-- [ ] T077 [US4] Implement scenario response validation in `backend/src/eduops/services/generation.py` — `_validate_generated_scenario(schema_json, approved_images)` checking: all images in approved list, all action types recognised, all check types are the four allowed, `docker_exec` commands are `list[str]`; return list of validation errors
+- [ ] T077 [US4] Implement scenario response validation in `backend/src/eduops/services/generation.py` — `_validate_generated_scenario(schema_json, approved_images)` checking: all images in approved list, all action types recognised, all check types are the four allowed, `docker_exec` commands are `list[str]`, `expected_containers` is present and is `list[str]`; return list of validation errors
 - [ ] T078 [US4] Implement `generate_scenario()` with retry in `backend/src/eduops/services/generation.py` — call LLM, parse JSON, validate; on failure: retry once feeding errors back; on second failure: raise with errors; on success: compute embedding, persist to DB via `upsert_scenario()`
 
 ### Generation API
@@ -252,7 +252,7 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ### Prompt Template
 
-- [ ] T080 [P] [US4] Create generation system prompt template in `backend/src/eduops/prompts/generation_system.txt` — full JSON schema, approved image list, four check types, example scenario, constraint instructions
+- [ ] T080 [P] [US4] Create generation system prompt template in `backend/src/eduops/prompts/generation_system.txt` — full JSON schema (including `expected_containers` field), approved image list, four check types, example scenario, constraint instructions
 
 ### Frontend (US4)
 

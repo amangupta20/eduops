@@ -138,7 +138,7 @@ The learner decides to stop working on a scenario mid-way. They click "End sessi
 - **FR-007**: System MUST execute scenario setup by translating typed `setup_actions` objects directly to Docker SDK calls — no shell strings, no `subprocess`, no arbitrary command execution.
 - **FR-008**: System MUST label every Docker resource it creates (containers, networks, volumes) with `eduops.session=<session-uuid>`.
 - **FR-009**: System MUST create a workspace directory at `~/.eduops/workspaces/<session-id>/` for each session, populate it with scenario-defined `workspace_files`, and resolve the `{{workspace}}` template variable in all action fields before execution. No other template variables are permitted in v1.
-- **FR-010**: System MUST stream live container logs from all session-labelled containers to the frontend via Server-Sent Events.
+- **FR-010**: System MUST stream live container logs from all session-labelled containers AND all containers named in the scenario's `expected_containers` list to the frontend via Server-Sent Events.
 - **FR-011**: System MUST provide a chat panel in the UI where the user can ask questions during an active scenario and receive LLM-generated coaching responses. The LLM MUST be system-prompted to use Socratic guidance by default — asking guiding questions and pointing to relevant commands/concepts without revealing the direct solution.
 - **FR-012**: The UI MUST provide an explicit "Show Answer" button that, when activated, instructs the LLM to reveal the direct solution. Direct-answer mode MUST only be triggered by the explicit UI button — not by message-text analysis — to prevent accidental answer reveals when the user is still working through the problem.
 - **FR-013**: System MUST track shown hints per session and never repeat the same hint within a session.
@@ -149,8 +149,8 @@ The learner decides to stop working on a scenario mid-way. They click "End sessi
 - **FR-018**: System MUST validate all LLM-generated scenarios against the typed schema before persisting or executing — rejecting any scenario with unrecognised action types, unapproved check types, or unapproved images.
 - **FR-019**: When an LLM-generated scenario fails validation, the system MUST automatically retry once by sending the validation errors back to the LLM for correction. If the second attempt also fails validation, the system MUST display the specific validation errors to the user and allow them to rephrase their request.
 - **FR-020**: System MUST compute and store an embedding for each newly generated scenario at creation time.
-- **FR-021**: System MUST run cleanup in deterministic order — stop containers → remove containers → remove networks → remove volumes → delete workspace directory → mark session closed in SQLite — on normal completion, explicit abandon, and process termination (`SIGINT`/`SIGTERM`).
-- **FR-022**: System MUST detect stale sessions on startup and clean up orphaned Docker resources via label-based queries before allowing new scenario starts.
+- **FR-021**: System MUST run cleanup in deterministic order — stop and remove expected_containers by name → stop containers → remove containers → remove networks → remove volumes → delete workspace directory → mark session closed in SQLite — on normal completion, explicit abandon, and process termination (`SIGINT`/`SIGTERM`). Cleanup of expected containers by name MUST gracefully skip any that no longer exist.
+- **FR-022**: System MUST detect stale sessions on startup and clean up orphaned Docker resources via label-based queries AND expected container names (from the scenario's `schema_json` persisted in DB) before allowing new scenario starts.
 - **FR-023**: System MUST enforce single active session — the user cannot start a new scenario while another session is active or stale.
 - **FR-024**: System MUST accept LLM configuration (API key, endpoint, model) from a TOML configuration file at `~/.eduops/config.toml`, and MUST NOT proxy, store, or transmit the API key anywhere beyond the configured endpoint.
 - **FR-025**: System MUST work with any LLM provider that implements the OpenAI chat completions API specification.
@@ -160,10 +160,11 @@ The learner decides to stop working on a scenario mid-way. They click "End sessi
 - **FR-029**: System MUST constrain LLM-generated scenarios to the approved base image list: `nginx:alpine`, `httpd:alpine`, `python:3.11-slim`, `alpine:3`, `busybox:latest`, `node:20-alpine`. The list MUST be extensible by the user via configuration.
 - **FR-030**: Scenarios requiring broken or exotic images MUST use a `build_image` action with an approved base image and introduce faults via inline Dockerfile content — never by pulling an arbitrary external image.
 - **FR-031**: `docker_exec` commands in success checks MUST be passed as a string array. No shell interpolation or shell string execution is permitted.
+- **FR-032**: Every scenario MUST declare an `expected_containers` field (`list[str]`) listing the container names the user is expected to create during the exercise. The platform uses this list for log streaming (alongside labelled setup containers) and for cleanup (removing user-created containers by name). LLM-generated scenarios MUST include this field and it MUST be validated.
 
 ### Key Entities
 
-- **Scenario**: A structured learning exercise with a title, description, difficulty, tags, workspace files, setup actions, success checks, hints, and review context. Can be bundled (shipped with the package) or generated (created by the LLM at runtime). Each scenario has a pre-computed embedding for semantic search.
+- **Scenario**: A structured learning exercise with a title, description, difficulty, tags, workspace files, setup actions, expected containers (names of containers the user will create), success checks, hints, and review context. Can be bundled (shipped with the package) or generated (created by the LLM at runtime). Each scenario has a pre-computed embedding for semantic search.
 - **Session**: A single attempt at a scenario by the user. Tracks status (active, completed, abandoned), links to the scenario, owns a workspace directory, and carries the eventual AI review. Identified by a UUID that is also used as the Docker resource label value.
 - **Hint Log Entry**: A record that a specific hint (by index) was shown in a specific session, preventing repeats.
 - **Chat Message**: A single user or assistant message within a session, persisted for history restoration and context building.
@@ -189,6 +190,6 @@ The learner decides to stop working on a scenario mid-way. They click "End sessi
 - **SC-003**: The live log panel displays container output within 2 seconds of it being written inside a container.
 - **SC-004**: Semantic search returns the most relevant bundled scenario as the top result for at least 80% of natural-language queries that describe a bundled scenario's topic.
 - **SC-005**: The AI coaching response appears in the chat panel within 10 seconds of the user sending a question (network latency to LLM provider excluded).
-- **SC-006**: Scenario cleanup removes 100% of session-labelled Docker resources (containers, networks, volumes) and the workspace directory — verified by post-cleanup Docker queries returning zero results for the session label.
+- **SC-006**: Scenario cleanup removes 100% of session-labelled Docker resources (containers, networks, volumes), all containers named in `expected_containers`, and the workspace directory — verified by post-cleanup Docker queries returning zero results for the session label and zero running containers matching expected names.
 - **SC-007**: LLM-generated scenarios that violate the approved image list or use unapproved action/check types are rejected 100% of the time before any Docker operation is performed.
 - **SC-008**: Stale session recovery at startup correctly identifies and cleans up orphaned resources from a previous crashed session within 15 seconds.
