@@ -1,4 +1,10 @@
 reviews:
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+      - dev
   instructions: |
     This project uses Spec-Driven Development via GitHub Spec Kit.
     Specs live in root Tasks live in specs/feature/tasks.md.
@@ -24,11 +30,4 @@ reviews:
     - New Python functions without docstrings
     - New feature without a corresponding entry in specs/001-core-platform/
     
-  auto_review:
-    enabled: true
-    drafts: false
-    base_branches:
-      - main
-      - dev
-  instructions: |
-    ... (rest of your existing instructions unchanged)
+
