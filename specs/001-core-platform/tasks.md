@@ -70,7 +70,7 @@ Tasks below reinforce this by: one function per task where possible, services sp
 - [ ] T014 [P] Define SetupAction discriminated union in `backend/src/eduops/models/scenario.py` — PullImage, BuildImage, CreateNetwork, CreateVolume, RunContainer Pydantic models with `action` literal discriminator field
 - [ ] T015 [P] Define SuccessCheck discriminated union in `backend/src/eduops/models/scenario.py` — ContainerRunning, PortResponds, DockerExec (command as `list[str]`), FileInWorkspace Pydantic models with `type` literal discriminator field
 - [ ] T016 Define ScenarioSchema and WorkspaceFile models in `backend/src/eduops/models/scenario.py` — ScenarioSchema aggregating setup_actions, success_checks, hints, review_context, workspace_files; `validate_approved_images(schema, approved_list)` function checking all image references against approved list
-- [ ] T017 [P] Define Session, CheckResult, and Review Pydantic models in `backend/src/eduops/models/session.py` — Session with status enum, CheckResult with check_type/passed/message, Review with what_went_well/what_could_improve/next_steps
+- [ ] T017 [P] Define Session, CheckResult, and Review Pydantic models in `backend/src/eduops/models/session.py` — Session with status enum (active/completed/abandoned), CheckResult with check_type/check_name/passed/message, Review with what_went_well/what_could_improve/next_steps (each a list of strings)
 
 ### Application Shell
 
@@ -149,7 +149,7 @@ Tasks below reinforce this by: one function per task where possible, services sp
 - [ ] T047 [P] [US1] Implement ScenarioCard component in `frontend/src/components/ScenarioCard.tsx` — title, truncated description, color-coded difficulty badge (green/yellow/red), tags as badges, "Start" button
 - [ ] T048 [US1] Implement Home page in `frontend/src/pages/Home.tsx` — render ScenarioCatalogue, handle "Start" click → `createSession()` → navigate to `/session/:id`, loading state, error toasts (409/422)
 - [ ] T049 [P] [US1] Implement LogPanel component in `frontend/src/components/LogPanel.tsx` — connect SSE via sse.ts client, render log lines with container name prefix (color-coded), auto-scroll, show start/exit/dropped events, handle reconnection
-- [ ] T050 [US1] Implement ActiveSession layout component in `frontend/src/components/ActiveSession.tsx` — scenario title/description/difficulty/workspace path header, LogPanel, placeholder for ChatPanel, "Submit" and "End Session" buttons
+- [ ] T050 [US1] Implement ActiveSession layout component in `frontend/src/components/ActiveSession.tsx` — scenario title/description/difficulty/workspace path header, LogPanel, placeholder slot for ChatPanel (wired in US3); disabled "Submit" and "End Session" button placeholders (wired in US2 T065 and US6 T092 respectively)
 - [ ] T051 [US1] Implement Session page in `frontend/src/pages/Session.tsx` — check active session via `getActiveSession()` on mount, redirect to Home if mismatch or missing, render ActiveSession
 
 **Checkpoint**: User Story 1 complete — browse catalogue, start scenario, see live logs, work in own terminal
@@ -164,7 +164,8 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ### Success Checks
 
-- [ ] T052 [P] [US2] Implement `check_container_running()` and `check_port_responds()` handlers in `backend/src/eduops/services/checks.py` — container_running: `client.containers.get(name).status`; port_responds: `httpx.get()` checking status code and optional body match
+`- [ ] T052 [P] [US2] Implement `check_container_running()`and`check_port_responds()`handlers in`backend/src/eduops/services/checks.py`— container_running:`client.containers.get(name).status`; port_responds: `httpx.get()` checking status code and optional body match
+
 - [ ] T053 [US2] Implement `check_docker_exec()` and `check_file_in_workspace()` handlers in `backend/src/eduops/services/checks.py` — docker_exec: `container.exec_run(command)` comparing stdout to expected; file_in_workspace: read file at workspace path, optionally check content
 - [ ] T054 [US2] Implement `run_checks()` orchestrator in `backend/src/eduops/services/checks.py` — dispatch each typed SuccessCheck to its handler, 30-second timeout with 2-second polling loop per check, collect and return list of CheckResult objects
 
@@ -176,7 +177,7 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ### LLM Client & Review
 
-- [ ] T058 [P] [US2] Implement LLM client initialisation in `backend/src/eduops/services/coaching.py` — `get_llm_client(config)` returning `openai.AsyncOpenAI(api_key=..., base_url=...)` with provider-based URL derivation (openai → default, gemini → googleapis endpoint, openrouter → openrouter.ai/api/v1, custom → user-provided)
+- [ ] T058 [P] [US2] Implement LLM client initialisation in `backend/src/eduops/services/coaching.py` — `get_llm_client(config)` returning `openai.AsyncOpenAI(api_key=config.llm.api_key, base_url=config.llm.base_url)` as a cached instance; base_url is already derived from provider by config.py (T008)
 - [ ] T059 [US2] Implement `generate_review()` in `backend/src/eduops/services/coaching.py` — accept scenario context, docker inspect data, and container logs; build messages with review system prompt; call `client.chat.completions.create()`; parse response into Review model (what_went_well, what_could_improve, next_steps)
 - [ ] T060 [P] [US2] Create review system prompt template in `backend/src/eduops/prompts/review_system.txt` — instruct LLM to evaluate Docker work and return structured JSON with what_went_well, what_could_improve, next_steps
 
