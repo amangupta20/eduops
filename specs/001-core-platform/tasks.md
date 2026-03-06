@@ -56,7 +56,8 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 - [ ] T007 [P] Define Config, LLMConfig, and ImagesConfig Pydantic models in `backend/src/eduops/config.py` — LLMConfig (provider, api_key, model, base_url), ImagesConfig with default approved list, top-level Config aggregating both
 - [ ] T008 Implement `load_config()` and `save_config()` TOML functions in `backend/src/eduops/config.py` — read/write `~/.eduops/config.toml`, handle missing file gracefully, derive `base_url` from provider (openai → default, gemini → googleapis, openrouter → openrouter.ai, custom → user-provided)
-- [ ] T009 Implement CLI argument parsing and uvicorn launch in `backend/src/eduops/cli.py` — parse `eduops start` command with optional `--port` flag, launch `uvicorn` pointing to `eduops.app:app` on port 7337
+- [ ] T018 Implement FastAPI app factory in `backend/src/eduops/app.py` — `create_app()` mounting API routers under `/api` prefix, serve frontend static files from `static/` directory with `StaticFiles(html=True)`, configure CORS for dev
+- [ ] T009 Implement CLI argument parsing and uvicorn launch in `backend/src/eduops/cli.py` — parse `eduops start` command with optional `--port` flag, launch `uvicorn` pointing to `eduops.app:app` on port 7337 (depends on T018)
 - [ ] T010 Implement interactive first-run LLM setup prompt in `backend/src/eduops/cli.py` — detect missing config, prompt for provider → API key → model, call `save_config()` to write `~/.eduops/config.toml`
 - [ ] T011 [P] Implement Docker availability check utility in `backend/src/eduops/cli.py` — `check_docker()` calling `docker.from_env().ping()`, return clear error message if Docker daemon unreachable; call before server launch
 
@@ -74,7 +75,6 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ### Application Shell
 
-- [ ] T018 Implement FastAPI app factory in `backend/src/eduops/app.py` — `create_app()` mounting API routers under `/api` prefix, serve frontend static files from `static/` directory with `StaticFiles(html=True)`, configure CORS for dev
 - [ ] T019 Implement lifespan context manager in `backend/src/eduops/app.py` — async context manager calling `init_db()` on startup and yielding; shutdown hook placeholder; wire into `create_app(lifespan=...)`
 - [ ] T020 Implement `GET /api/health` endpoint in `backend/src/eduops/api/health.py` — return Docker status, LLM configured flag, active session ID or null, scenario count per contracts/api.md
 - [ ] T021 [P] Create base frontend HTTP client with health function in `frontend/src/services/api.ts` — typed fetch wrapper with base URL `/api`, error handling, `getHealth()` function
@@ -133,11 +133,11 @@ Tasks below reinforce this by: one function per task where possible, services sp
 - [ ] T040 [P] [US1] Create bundled scenario JSON files 1–4 in `backend/src/eduops/scenarios/` — (1) running containers (easy), (2) port bindings (easy), (3) bind mounts (easy), (4) named volumes (medium); each with typed setup_actions, success_checks, hints, review_context
 - [ ] T041 [P] [US1] Create bundled scenario JSON files 5–7 in `backend/src/eduops/scenarios/` — (5) Dockerfile basics (easy), (6) image building (medium), (7) container debugging with build_image fault injection (medium)
 - [ ] T042 [P] [US1] Create bundled scenario JSON files 8–10 in `backend/src/eduops/scenarios/` — (8) environment variables (medium), (9) networking two containers (hard), (10) multi-step workflows (hard); collectively all 10 must exercise all four check types and all three difficulty levels
-- [ ] T043 [P] [US1] Create embedding precomputation script in `backend/scripts/compute_embeddings.py` — load scenario JSONs, compute embeddings with `SentenceTransformer("all-MiniLM-L6-v2", backend="onnx")`, write base64-encoded embeddings back into each JSON
+- [ ] T043 [P] [US1] Create embedding precomputation script in `backend/scripts/compute_embeddings.py` — optional dev utility to verify embedding dimensions and model consistency; not required at runtime since embeddings are computed at startup by the embedding model
 
 ### App Wiring
 
-- [ ] T044 [US1] Wire bundled scenario loading and embedding init into app lifespan in `backend/src/eduops/app.py` — on startup: load embedding model, call `load_bundled_scenarios()`, compute or use pre-computed embeddings, upsert all into DB
+- [ ] T044 [US1] Wire bundled scenario loading and embedding init into app lifespan in `backend/src/eduops/app.py` — on startup: load embedding model, call `load_bundled_scenarios()`, compute embeddings for all bundled scenarios, upsert all into DB
 
 ### Frontend API Client (US1)
 
@@ -164,7 +164,7 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ### Success Checks
 
-`- [ ] T052 [P] [US2] Implement `check_container_running()`and`check_port_responds()`handlers in`backend/src/eduops/services/checks.py`— container_running:`client.containers.get(name).status`; port_responds: `httpx.get()` checking status code and optional body match
+- [ ] T052 [P] [US2] Implement `check_container_running()` and `check_port_responds()` handlers in `backend/src/eduops/services/checks.py` — container_running: `client.containers.get(name).status`; port_responds: `httpx.get()` checking status code and optional body match
 
 - [ ] T053 [US2] Implement `check_docker_exec()` and `check_file_in_workspace()` handlers in `backend/src/eduops/services/checks.py` — docker_exec: `container.exec_run(command)` comparing stdout to expected; file_in_workspace: read file at workspace path, optionally check content
 - [ ] T054 [US2] Implement `run_checks()` orchestrator in `backend/src/eduops/services/checks.py` — dispatch each typed SuccessCheck to its handler, 30-second timeout with 2-second polling loop per check, collect and return list of CheckResult objects
@@ -177,8 +177,8 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ### LLM Client & Review
 
-- [ ] T058 [P] [US2] Implement LLM client initialisation in `backend/src/eduops/services/coaching.py` — `get_llm_client(config)` returning `openai.AsyncOpenAI(api_key=config.llm.api_key, base_url=config.llm.base_url)` as a cached instance; base_url is already derived from provider by config.py (T008)
-- [ ] T059 [US2] Implement `generate_review()` in `backend/src/eduops/services/coaching.py` — accept scenario context, docker inspect data, and container logs; build messages with review system prompt; call `client.chat.completions.create()`; parse response into Review model (what_went_well, what_could_improve, next_steps)
+- [ ] T058 [P] [US2] Implement LLM client initialisation in `backend/src/eduops/services/llm_coaching.py` — `get_llm_client(config)` returning `openai.AsyncOpenAI(api_key=config.llm.api_key, base_url=config.llm.base_url)` as a cached instance; base_url is already derived from provider by config.py (T008)
+- [ ] T059 [US2] Implement `generate_review()` in `backend/src/eduops/services/llm_coaching.py` — accept scenario context, docker inspect data, and container logs; build messages with review system prompt; call `client.chat.completions.create()`; parse response into Review model (what_went_well, what_could_improve, next_steps)
 - [ ] T060 [P] [US2] Create review system prompt template in `backend/src/eduops/prompts/review_system.txt` — instruct LLM to evaluate Docker work and return structured JSON with what_went_well, what_could_improve, next_steps
 
 ### Submit API
@@ -204,15 +204,15 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ### Chat Persistence
 
-- [ ] T066 [P] [US3] Implement chat history DB helpers in `backend/src/eduops/services/coaching.py` — `get_chat_history(db, session_id)` returning ordered messages, `save_message(db, session_id, role, content)` inserting into chat_log table
+- [ ] T066 [P] [US3] Implement chat history DB helpers in `backend/src/eduops/services/llm_coaching.py` — `get_chat_history(db, session_id)` returning ordered messages, `save_message(db, session_id, role, content)` inserting into chat_log table
 
 ### Hint Tracking
 
-- [ ] T067 [US3] Implement hint tracking functions in `backend/src/eduops/services/coaching.py` — `get_shown_hints(db, session_id)` querying hint_log, `record_hint(db, session_id, hint_index)` inserting with UNIQUE constraint, filter available hints by excluding shown indices
+- [ ] T067 [US3] Implement hint tracking functions in `backend/src/eduops/services/llm_coaching.py` — `get_shown_hints(db, session_id)` querying hint_log, `record_hint(db, session_id, hint_index)` inserting with UNIQUE constraint, filter available hints by excluding shown indices
 
 ### Hint Generation
 
-- [ ] T068 [US3] Implement `generate_hint()` in `backend/src/eduops/services/coaching.py` — build messages with system prompt (Socratic by default, direct if `show_answer=True`), include scenario context + chat history + hint log, call LLM via `get_llm_client()`, record hint if structured hint surfaced, return assistant message
+- [ ] T068 [US3] Implement `generate_hint()` in `backend/src/eduops/services/llm_coaching.py` — build messages with system prompt (Socratic by default, direct if `show_answer=True`), include scenario context + chat history + hint log, call LLM via `get_llm_client()`, record hint if structured hint surfaced, return assistant message
 
 ### Chat API
 
@@ -317,7 +317,7 @@ Tasks below reinforce this by: one function per task where possible, services sp
 - [ ] T095 [P] Implement toast notification system in `frontend/src/App.tsx` — shadcn/ui toast for success/error/warning across all flows
 - [ ] T096 [P] Add responsive layout and styling polish to `frontend/src/App.tsx` — header with eduops branding, responsive catalogue grid, mobile session layout
 - [ ] T097 Implement frontend build integration in `backend/pyproject.toml` — hatchling includes `frontend/dist/` as `eduops/static/` in wheel; update app.py to resolve static path from package data
-- [ ] T098 [P] Add graceful LLM degradation in `backend/src/eduops/services/coaching.py` and `backend/src/eduops/services/generation.py` — catch connection errors, return 502; non-AI features work without LLM
+- [ ] T098 [P] Add graceful LLM degradation in `backend/src/eduops/services/llm_coaching.py` and `backend/src/eduops/services/generation.py` — catch connection errors, return 502; non-AI features work without LLM
 - [ ] T099 [P] Add Docker-not-running error handling in `backend/src/eduops/services/docker_exec.py` — catch `DockerException`, report clearly; ensure health endpoint reflects Docker status
 - [ ] T100 [P] Write `backend/README.md` and `frontend/README.md` with development setup workflows
 - [ ] T101 Run quickstart.md validation — verify `pip install -e ".[dev]"`, `npm ci && npm run build`, `uvicorn` start, frontend proxy, `eduops start` end-to-end
@@ -443,7 +443,7 @@ Sequential priority order: P1 → P2 → P3 → P4 → P5 → P6 → Polish. US1
 - No placeholder/empty file tasks — files are created when their implementation task runs
 - Commit after each task
 - All 10 bundled scenarios collectively exercise all four check types and all three difficulty levels
-- Embedding model (`all-MiniLM-L6-v2` ONNX) must match between precompute and runtime
+- Embedding model (`all-MiniLM-L6-v2` ONNX) computes embeddings at startup for bundled scenarios and at creation time for generated scenarios
 - No ORM — raw `sqlite3` with parameterised queries
 - No shell strings — Docker SDK typed calls only
 - Service functions are pure business logic; API layer is thin routing + validation only

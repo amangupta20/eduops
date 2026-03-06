@@ -82,11 +82,13 @@ backend/
 │       │   ├── docker_exec.py   # Docker SDK action executor (setup_actions)
 │       │   ├── checks.py        # Success check runner (four types)
 │       │   ├── cleanup.py       # Label-based cleanup, lifespan shutdown cleanup, stale recovery
-│       │   ├── coaching.py      # LLM chat/hint/review integration
+│       │   ├── llm_coaching.py  # LLM chat/hint/review integration
 │       │   ├── embedding.py     # sentence-transformers embedding + cosine search
 │       │   ├── generation.py    # LLM scenario generation + validation + retry
-│       │   └── logs.py          # SSE log streaming from docker logs -f
+│       │   ├── logs.py          # SSE log streaming from docker logs -f
+│       │   └── session.py       # Session lifecycle (create, get active, enforce single)
 │       ├── api/
+│       │   ├── health.py        # GET /health
 │       │   ├── scenarios.py     # GET /scenarios, GET /scenarios/:id, POST /scenarios/search
 │       │   ├── sessions.py      # POST /sessions, POST /sessions/:id/submit, DELETE /sessions/:id
 │       │   ├── chat.py          # POST /sessions/:id/chat, GET /sessions/:id/chat

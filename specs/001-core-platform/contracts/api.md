@@ -351,8 +351,7 @@ Send a message to the AI coach.
 }
 ```
 
-The `show_answer` field triggers direct-answer mode (switches system prompt). Default `false` for Socratic coaching.
-If the user explicitly asks for the direct answer in `message`, the backend also triggers direct-answer mode for that response.
+The `show_answer` field triggers direct-answer mode (switches system prompt). Default `false` for Socratic coaching. Direct-answer mode is only activated via this boolean (set by the UI button) — the backend does not analyse message text for intent.
 
 **Response** `200 OK`:
 

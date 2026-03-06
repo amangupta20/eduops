@@ -92,7 +92,7 @@ One row per scenario attempt. The session `id` is also used as the Docker resour
 | `workspace_path` | TEXT | NOT NULL                                                      | Absolute path: `~/.eduops/workspaces/<session-id>/` |
 | `started_at`     | TEXT | NOT NULL                                                      | ISO 8601 timestamp                                  |
 | `completed_at`   | TEXT |                                                               | ISO 8601 timestamp, NULL until session ends         |
-| `review_text`    | TEXT |                                                               | LLM review output, NULL until successful submit     |
+| `review_text`    | TEXT |                                                               | LLM review as plain text (markdown), NULL until successful submit. Stored as human-readable text so the user can read and improve on it. |
 
 **Indexes**:
 
@@ -363,8 +363,8 @@ class Review(BaseModel):
 ## Embedding Storage & Search
 
 - **Storage**: 384-dim float32 vector stored as BLOB (1536 bytes) in `scenarios.embedding`
-- **Pre-computed**: Bundled scenarios ship with embeddings in `eduops/data/scenario_embeddings.json` (base64-encoded)
-- **Runtime computation**: Generated scenarios get embeddings at creation time via `sentence-transformers[onnx]` with `all-MiniLM-L6-v2`
+- **Bundled scenarios**: Embeddings are computed at startup by the embedding model (`all-MiniLM-L6-v2` ONNX) and stored in the DB. No pre-computed embedding files are shipped.
+- **Generated scenarios**: Embeddings are computed at creation time via the same model.
 - **Search**: Query embedding computed at search time, cosine similarity against all scenario embeddings, results ranked by score
 - **Implementation**: Load all embeddings into memory at startup (10–1000 scenarios × 1.5 KB = negligible). Cosine similarity via numpy or manual dot product. No vector DB needed.
 

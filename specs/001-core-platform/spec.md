@@ -12,7 +12,7 @@
 - Q: What configuration file format and path should eduops use for LLM settings? → A: TOML at `~/.eduops/config.toml`, with an interactive first-run setup prompt (provider → key → model) when config is missing.
 - Q: When LLM-generated scenario validation fails, should the platform retry automatically? → A: One automatic retry with the validation error fed back to the LLM; if the second attempt also fails, show the error to the user and let them rephrase.
 - Q: How long should success checks wait before declaring failure? → A: 30-second timeout with 2-second polling interval per check.
-- Q: Should the coaching chat avoid giving direct answers? → A: Strictly Socratic by default (system prompt forbids direct answers), but the user can explicitly request the answer via a dedicated "Show Answer" action in the UI or by explicitly asking in chat.
+- Q: Should the coaching chat avoid giving direct answers? → A: Strictly Socratic by default (system prompt forbids direct answers), but the user can explicitly request the answer via a dedicated "Show Answer" button in the UI. No message-text intent detection — direct-answer mode is triggered only by the button to prevent accidental answer reveals.
 - Q: How many bundled scenarios should ship with v1? → A: 10 bundled scenarios covering core Docker topics, exercising all four success check types.
 
 ## User Scenarios & Testing _(mandatory)_
@@ -140,7 +140,7 @@ The learner decides to stop working on a scenario mid-way. They click "End sessi
 - **FR-009**: System MUST create a workspace directory at `~/.eduops/workspaces/<session-id>/` for each session, populate it with scenario-defined `workspace_files`, and resolve the `{{workspace}}` template variable in all action fields before execution. No other template variables are permitted in v1.
 - **FR-010**: System MUST stream live container logs from all session-labelled containers to the frontend via Server-Sent Events.
 - **FR-011**: System MUST provide a chat panel in the UI where the user can ask questions during an active scenario and receive LLM-generated coaching responses. The LLM MUST be system-prompted to use Socratic guidance by default — asking guiding questions and pointing to relevant commands/concepts without revealing the direct solution.
-- **FR-012**: The UI MUST provide an explicit "Show Answer" action (button or equivalent) that, when activated, instructs the LLM to reveal the direct solution. The user explicitly asking for the answer in chat MUST also trigger direct-answer mode for that response.
+- **FR-012**: The UI MUST provide an explicit "Show Answer" button that, when activated, instructs the LLM to reveal the direct solution. Direct-answer mode MUST only be triggered by the explicit UI button — not by message-text analysis — to prevent accidental answer reveals when the user is still working through the problem.
 - **FR-013**: System MUST track shown hints per session and never repeat the same hint within a session.
 - **FR-014**: System MUST run deterministic `success_checks` when the user submits a solution, reporting pass/fail per check with enough detail for the user to understand what failed. Each check MUST use a 30-second timeout with a 2-second polling interval before declaring failure.
 - **FR-015**: System MUST collect `docker inspect` output and container logs after successful checks and send them, along with `review_context`, to the configured LLM to generate a review.
