@@ -6,6 +6,7 @@ reviews:
     On every PR enforce the following:
 
     BLOCKING — fail the PR if any of these are violated:
+    - PR description must contain "closes #N" referencing a GitHub Issue
     - feature/* branches must target dev, never main
     - Only dev may target main
     - No hardcoded API keys, model names, base URLs, or credentials anywhere
