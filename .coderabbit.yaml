@@ -21,7 +21,7 @@ reviews:
 
     WARNINGS — flag but do not block:
     - New Python functions without docstrings
-    - New feature without a corresponding entry in docs/specs/
+    - New feature without a corresponding entry in specs/001-core-platform/
 
   auto_review:
     enabled: true
