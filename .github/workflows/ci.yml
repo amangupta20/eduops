@@ -19,4 +19,4 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install mypy
-      - run: mypy fossops/ --ignore-missing-imports
+      - run: mypy eduops/ --ignore-missing-imports
