@@ -149,6 +149,10 @@ Tracks which hints have been shown in a session, preventing the same hint from b
 - `hint_index` must be >= 0 and < length of the scenario's `hints` array
 - The UNIQUE constraint prevents duplicate hint display
 
+**Usage Rule**:
+
+- The backend selects the next unseen hint deterministically from the scenario's `hints` array (for v1: lowest unseen index), injects that hint text into the Socratic prompt, and records the `hint_index` only after the assistant response has been generated and persisted successfully.
+
 ---
 
 ## Table: `chat_log`

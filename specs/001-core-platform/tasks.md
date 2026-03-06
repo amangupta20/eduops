@@ -208,15 +208,15 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ### Hint Tracking
 
-- [ ] T067 [US3] Implement hint tracking functions in `backend/src/eduops/services/llm_coaching.py` — `get_shown_hints(db, session_id)` querying hint_log, `record_hint(db, session_id, hint_index)` inserting with UNIQUE constraint, filter available hints by excluding shown indices
+- [ ] T067 [US3] Implement hint tracking functions in `backend/src/eduops/services/llm_coaching.py` — `get_shown_hints(db, session_id)` querying hint_log, `get_next_hint_index(hints, shown_indices)` selecting the next unseen hint deterministically (lowest unseen index), and `record_hint(db, session_id, hint_index)` inserting with UNIQUE constraint
 
 ### Hint Generation
 
-- [ ] T068 [US3] Implement `generate_hint()` in `backend/src/eduops/services/llm_coaching.py` — build messages with system prompt (Socratic by default, direct if `show_answer=True`), include scenario context + chat history + hint log, call LLM via `get_llm_client()`, record hint if structured hint surfaced, return assistant message
+- [ ] T068 [US3] Implement `generate_hint()` in `backend/src/eduops/services/llm_coaching.py` — build messages with system prompt (Socratic by default, direct if `show_answer=True`); in Socratic mode load shown hint indices, select the next unseen hint from the scenario `hints` array (if any), inject that hint text into the prompt, call LLM via `get_llm_client()`, persist the assistant message, then record the consumed `hint_index`; if no hints remain, continue without hint injection
 
 ### Chat API
 
-- [ ] T069 [US3] Implement `POST /api/sessions/{session_id}/chat` endpoint in `backend/src/eduops/api/chat.py` — accept `{message, show_answer}`, validate session active, load history + hints, call `generate_hint()`, persist user and assistant messages, return assistant response
+- [ ] T069 [US3] Implement `POST /api/sessions/{session_id}/chat` endpoint in `backend/src/eduops/api/chat.py` — accept `{message, show_answer}`, validate session active, persist the user message, load history + scenario hints, call `generate_hint()`, and return the persisted assistant response
 - [ ] T070 [US3] Implement `GET /api/sessions/{session_id}/chat` endpoint in `backend/src/eduops/api/chat.py` — return full ordered chat history for session, 404 if session not found
 
 ### Prompt Templates

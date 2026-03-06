@@ -53,7 +53,7 @@ While working on an active scenario, the learner completes the task and clicks "
 
 ### User Story 3 — Ask for Help During a Scenario (Priority: P3)
 
-While working on an active scenario, the learner gets stuck and types a question into the chat panel, such as "My container starts but the port isn't accessible from the host." The platform sends the question along with the scenario context and hint history to the LLM. The LLM responds with guidance — nudging the user towards the solution without giving it away directly. The platform tracks which hints have been shown so it never repeats the same hint.
+While working on an active scenario, the learner gets stuck and types a question into the chat panel, such as "My container starts but the port isn't accessible from the host." The platform sends the question along with the scenario context and hint history to the LLM. When the scenario has structured hints available, the backend selects the next unseen hint, includes that hint text in the prompt, and records its index after a successful assistant response is persisted. The LLM responds with guidance — nudging the user towards the solution without giving it away directly. The platform tracks which hints have been shown so it never repeats the same hint.
 
 **Why this priority**: The coaching interaction during a scenario is a core differentiator, but the platform still delivers value (scenario + review) without it. This builds on top of the submission flow.
 
@@ -61,8 +61,8 @@ While working on an active scenario, the learner gets stuck and types a question
 
 **Acceptance Scenarios**:
 
-1. **Given** a scenario is active and the user types a question in the chat panel, **When** the message is sent, **Then** the platform forwards the question along with scenario description, current hint history, and session context to the configured LLM, and displays the response in the chat panel.
-2. **Given** the scenario includes structured hints, **When** the user asks for help and a hint is surfaced, **Then** the hint is recorded in the hint log so the same hint is never shown again in this session.
+1. **Given** a scenario is active and the user types a question in the chat panel, **When** the message is sent, **Then** the platform forwards the question along with scenario description, current hint history, session context, and the next unseen structured hint (if any) to the configured LLM, and displays the response in the chat panel.
+2. **Given** the scenario includes structured hints, **When** the user asks for help and the assistant response is successfully generated and persisted, **Then** the backend records the selected hint's index in the hint log so the same hint is never shown again in this session.
 3. **Given** a chat history exists for the session, **When** the user reloads the browser, **Then** the full chat history for the active session is restored from persistence.
 
 ---
@@ -141,7 +141,7 @@ The learner decides to stop working on a scenario mid-way. They click "End sessi
 - **FR-010**: System MUST stream live container logs from all session-labelled containers AND all containers named in the scenario's `expected_containers` list to the frontend via Server-Sent Events.
 - **FR-011**: System MUST provide a chat panel in the UI where the user can ask questions during an active scenario and receive LLM-generated coaching responses. The LLM MUST be system-prompted to use Socratic guidance by default — asking guiding questions and pointing to relevant commands/concepts without revealing the direct solution.
 - **FR-012**: The UI MUST provide an explicit "Show Answer" button that, when activated, instructs the LLM to reveal the direct solution. Direct-answer mode MUST only be triggered by the explicit UI button — not by message-text analysis — to prevent accidental answer reveals when the user is still working through the problem.
-- **FR-013**: System MUST track shown hints per session and never repeat the same hint within a session.
+- **FR-013**: System MUST track shown hints per session and never repeat the same hint within a session. In Socratic mode, the backend MUST deterministically select the next unseen hint from the scenario's `hints` array, inject that hint text into the LLM prompt, and record the `hint_index` only after a successful assistant response is persisted.
 - **FR-014**: System MUST run deterministic `success_checks` when the user submits a solution, reporting pass/fail per check with enough detail for the user to understand what failed. Each check MUST use a 30-second timeout with a 2-second polling interval before declaring failure.
 - **FR-015**: System MUST collect `docker inspect` output and container logs after successful checks and send them, along with `review_context`, to the configured LLM to generate a review.
 - **FR-016**: System MUST persist the AI review with the session record once generated.
