@@ -167,7 +167,7 @@ Tasks below reinforce this by: one function per task where possible, services sp
 - [ ] T052 [P] [US2] Implement `check_container_running()` and `check_port_responds()` handlers in `backend/src/eduops/services/checks.py` — container_running: `client.containers.get(name).status`; port_responds: `httpx.get()` checking status code and optional body match
 
 - [ ] T053 [US2] Implement `check_docker_exec()` and `check_file_in_workspace()` handlers in `backend/src/eduops/services/checks.py` — docker_exec: `container.exec_run(command)` comparing stdout to expected; file_in_workspace: read file at workspace path, optionally check content
-- [ ] T054 [US2] Implement `run_checks()` orchestrator in `backend/src/eduops/services/checks.py` — dispatch each typed SuccessCheck to its handler, 30-second timeout with 2-second polling loop per check, collect and return list of CheckResult objects
+- [ ] T054 [US2] Implement synchronous `run_checks()` orchestrator in `backend/src/eduops/services/checks.py` — dispatch each typed SuccessCheck to its handler, 30-second timeout with 2-second polling loop per check, collect and return list of CheckResult objects; keep blocking Docker/timeout work inside this sync function so it can be run in a worker thread from the API layer without blocking the ASGI event loop
 
 ### Cleanup Service
 
@@ -183,7 +183,7 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ### Submit API
 
-- [ ] T061 [US2] Implement `POST /api/sessions/{session_id}/submit` in `backend/src/eduops/api/sessions.py` — validate session active, run checks, if all pass: collect inspect data + logs → `generate_review()` → persist review → cleanup → return completed; if any fail: return checks with null review, status stays active
+- [ ] T061 [US2] Implement `POST /api/sessions/{session_id}/submit` in `backend/src/eduops/api/sessions.py` — validate session active, run `run_checks()` via `await asyncio.to_thread(...)` (or equivalent executor call) so blocking check timeouts do not block FastAPI's event loop, if all pass: collect inspect data + logs → `generate_review()` → persist review → cleanup → return completed; if any fail: return checks with null review, status stays active
 
 ### Frontend (US2)
 
