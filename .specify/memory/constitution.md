@@ -1,11 +1,12 @@
 <!--
   Sync Impact Report
   ──────────────────
-  Version change: 1.0.0 → 1.0.1 (PATCH — wording clarification)
+  Version change: 1.0.1 → 1.1.0 (MINOR — expanded cleanup guidance)
   Modified principles:
-    - I. FOSS & Local-First: clarified LLM API is a required
-      external dependency, not a "cloud service operated by the
-      project"; removed misleading "no cloud services" framing.
+    - III. Deterministic Resource Ownership: added expected_containers
+      name-based cleanup alongside label-based cleanup to cover
+      user-created Docker resources. Updated teardown order and
+      rationale.
   Added sections: none
   Removed sections: none
   Templates requiring updates:
@@ -65,21 +66,27 @@ objects make the attack space enumerable and auditable.
 ### III. Deterministic Resource Ownership
 
 Every Docker resource created by eduops MUST be labelled
-`eduops.session=<uuid>`. Cleanup MUST be derived from these labels,
-not declared in scenario schemas.
+`eduops.session=<uuid>`. Cleanup of platform-created resources MUST
+be derived from these labels. Additionally, scenarios declare an
+`expected_containers` list naming containers the user is expected to
+create during the exercise; these are cleaned up by name.
 
-- Teardown order: stop containers → remove containers → remove
-  networks → remove volumes → delete workspace directory → mark
-  session closed in SQLite.
+- Teardown order: stop and remove expected_containers by name (skip
+  if absent) → stop labelled containers → remove labelled
+  containers → remove labelled networks → remove labelled volumes →
+  delete workspace directory → mark session closed in SQLite.
 - Cleanup runs on: normal completion, explicit abandon, process
   termination (`SIGINT`/`SIGTERM`), and stale session recovery at
   startup.
 - No Docker-in-Docker. Scenario containers are managed via the host
   Docker socket through the Python Docker SDK.
 
-**Rationale:** Label-based ownership makes cleanup deterministic and
-guarantees eduops never touches resources the user created outside
-the platform.
+**Rationale:** Label-based ownership covers platform-created
+resources deterministically. The `expected_containers` list covers
+user-created resources that the scenario anticipates, since standard
+Docker CLI commands do not carry eduops labels. Together they ensure
+cleanup handles both sides without requiring wrapper scripts or
+modifying the user's Docker workflow.
 
 ### IV. User-Controlled AI
 
@@ -219,4 +226,4 @@ discussions MUST comply with the principles defined here.
   constitution, the constitution wins. Update the spec, not the
   constitution — unless an amendment is formally proposed.
 
-**Version**: 1.0.1 | **Ratified**: 2026-03-04 | **Last Amended**: 2026-03-04
+**Version**: 1.1.0 | **Ratified**: 2026-03-04 | **Last Amended**: 2026-03-06
