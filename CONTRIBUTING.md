@@ -1,4 +1,4 @@
-# Contributing to FOSSOPS
+# Contributing to EDUOPS
 
 ## Before You Start
 

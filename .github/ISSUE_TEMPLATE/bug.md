@@ -23,13 +23,6 @@ labels: bug
 
 ```
 
----
-
-### 7 — Add Cursor Rules
-
-Create `.cursor/rules/architecture.mdc`:
-```
-
 # EDUOPS Architecture Rules
 
 Read docs/ARCHITECTURE.md and docs/constitution.md before writing any code.
@@ -71,6 +64,7 @@ Read the relevant spec file in docs/specs/ before implementing any feature.
 ```
 
 Create `.cursor/rules/conventions.mdc`:
+
 ```
 
 # EDUOPS Conventions
@@ -106,6 +100,7 @@ Create `.cursor/rules/conventions.mdc`:
 ```
 
 Create `.cursor/rules/forbidden.mdc`:
+
 ```
 
 # EDUOPS — Never Do These
@@ -133,5 +128,4 @@ Create `.cursor/rules/forbidden.mdc`:
 
 - Never use Docker-in-Docker or run --privileged containers.
 
-- Never disable or bypass ruff or mypy with inline suppression comments
-  unless accompanied by a comment explaining exactly why.
+```

@@ -8,7 +8,7 @@ closes #
 
 ## Task Reference
 
-<!-- Which task in docs/tasks.md does this complete? Copy the task name exactly. -->
+<!-- Which task in specs/001-core-platform/tasks.md does this complete? Copy the task name exactly. -->
 
 ## How Was This Tested?
 
