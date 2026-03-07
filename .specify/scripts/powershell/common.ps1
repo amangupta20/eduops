@@ -67,6 +67,54 @@ function Test-HasGit {
     }
 }
 
+function Get-LatestSpecDir {
+    param([string]$SpecsDir)
+
+    if (-not (Test-Path $SpecsDir)) {
+        return $null
+    }
+
+    $latest = Get-ChildItem -Path $SpecsDir -Directory |
+        Where-Object { $_.Name -match '^(\d{3})-' } |
+        Sort-Object { [int]$_.Name.Substring(0, 3) } -Descending |
+        Select-Object -First 1
+
+    if ($latest) {
+        return $latest.FullName
+    }
+
+    return $null
+}
+
+function Find-FeatureDirByTaskId {
+    param(
+        [string]$RepoRoot,
+        [string]$TaskId
+    )
+
+    $specsDir = Join-Path $RepoRoot 'specs'
+    if (-not (Test-Path $specsDir)) {
+        return $null
+    }
+
+    $normalizedTaskId = $TaskId.ToUpper()
+    $matches = Get-ChildItem -Path $specsDir -Recurse -Filter tasks.md -File -ErrorAction SilentlyContinue |
+        Where-Object {
+            Select-String -Path $_.FullName -Pattern "\b$normalizedTaskId\b" -Quiet
+        } |
+        ForEach-Object { Split-Path $_.FullName -Parent }
+
+    if ($matches.Count -eq 1) {
+        return $matches[0]
+    }
+
+    if ($matches.Count -gt 1) {
+        Write-Error "Multiple spec directories contain task '$normalizedTaskId': $($matches -join ', ')"
+    }
+
+    return $null
+}
+
 function Test-FeatureBranch {
     param(
         [string]$Branch,
@@ -79,9 +127,9 @@ function Test-FeatureBranch {
         return $true
     }
     
-    if ($Branch -notmatch '^[0-9]{3}-') {
+    if (($Branch -ne 'dev') -and ($Branch -notmatch '^feature/[a-zA-Z0-9._-]+$')) {
         Write-Output "ERROR: Not on a feature branch. Current branch: $Branch"
-        Write-Output "Feature branches should be named like: 001-feature-name"
+        Write-Output "Feature branches should be named like: feature/t006-test-fixtures or feature/123-session-cleanup (or 'dev')"
         return $false
     }
     return $true
@@ -96,7 +144,42 @@ function Get-FeaturePathsEnv {
     $repoRoot = Get-RepoRoot
     $currentBranch = Get-CurrentBranch
     $hasGit = Test-HasGit
-    $featureDir = Get-FeatureDir -RepoRoot $repoRoot -Branch $currentBranch
+
+    $specsDir = Join-Path $repoRoot 'specs'
+    $branchRef = $currentBranch
+    if ($branchRef -match '^feature/(.+)$') {
+        $branchRef = $matches[1]
+    }
+
+    $featureDir = $null
+    if ($branchRef -match '^(t\d+)-') {
+        $featureDir = Find-FeatureDirByTaskId -RepoRoot $repoRoot -TaskId $matches[1]
+    }
+
+    if (-not $featureDir -and $branchRef -match '^(\d{3})-') {
+        $prefix = $matches[1]
+        $matchingDir = Get-ChildItem -Path $specsDir -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match "^$prefix-" } |
+            Select-Object -First 1
+        if ($matchingDir) {
+            $featureDir = $matchingDir.FullName
+        }
+    }
+
+    if (-not $featureDir -and $currentBranch -eq 'dev') {
+        $featureDir = Get-LatestSpecDir -SpecsDir $specsDir
+    }
+
+    if (-not $featureDir -and (Test-Path $specsDir)) {
+        $allSpecDirs = Get-ChildItem -Path $specsDir -Directory -ErrorAction SilentlyContinue
+        if ($allSpecDirs.Count -eq 1) {
+            $featureDir = $allSpecDirs[0].FullName
+        }
+    }
+
+    if (-not $featureDir) {
+        $featureDir = Get-FeatureDir -RepoRoot $repoRoot -Branch $branchRef
+    }
     
     [PSCustomObject]@{
         REPO_ROOT     = $repoRoot

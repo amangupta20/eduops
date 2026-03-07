@@ -62,6 +62,61 @@ has_git() {
     git rev-parse --show-toplevel >/dev/null 2>&1
 }
 
+get_latest_spec_dir() {
+    local specs_dir="$1"
+
+    if [[ -d "$specs_dir" ]]; then
+        local latest_dir=""
+        local highest=0
+
+        for dir in "$specs_dir"/[0-9][0-9][0-9]-*; do
+            if [[ -d "$dir" ]]; then
+                local dirname=$(basename "$dir")
+                if [[ "$dirname" =~ ^([0-9]{3})- ]]; then
+                    local number=$((10#${BASH_REMATCH[1]}))
+                    if [[ "$number" -gt "$highest" ]]; then
+                        highest=$number
+                        latest_dir="$dir"
+                    fi
+                fi
+            fi
+        done
+
+        if [[ -n "$latest_dir" ]]; then
+            echo "$latest_dir"
+            return
+        fi
+    fi
+}
+
+find_feature_dir_by_task_id() {
+    local repo_root="$1"
+    local task_id="$2"
+    local specs_dir="$repo_root/specs"
+
+    [[ -d "$specs_dir" ]] || return
+
+    local normalized_task_id
+    normalized_task_id=$(echo "$task_id" | tr '[:lower:]' '[:upper:]')
+    local matches=()
+
+    while IFS= read -r task_file; do
+        [[ -n "$task_file" ]] || continue
+        if grep -Eq "\\b${normalized_task_id}\\b" "$task_file"; then
+            matches+=("$(dirname "$task_file")")
+        fi
+    done < <(find "$specs_dir" -mindepth 2 -maxdepth 2 -name tasks.md -type f 2>/dev/null)
+
+    if [[ ${#matches[@]} -eq 1 ]]; then
+        echo "${matches[0]}"
+        return
+    fi
+
+    if [[ ${#matches[@]} -gt 1 ]]; then
+        echo "ERROR: Multiple spec directories contain task '$normalized_task_id': ${matches[*]}" >&2
+    fi
+}
+
 check_feature_branch() {
     local branch="$1"
     local has_git_repo="$2"
@@ -72,9 +127,9 @@ check_feature_branch() {
         return 0
     fi
 
-    if [[ "$branch" != "dev" ]] && [[ ! "$branch" =~ ^[0-9]{3}- ]]; then
+    if [[ "$branch" != "dev" ]] && [[ ! "$branch" =~ ^feature/[a-zA-Z0-9._-]+$ ]]; then
         echo "ERROR: Not on a feature branch. Current branch: $branch" >&2
-        echo "Feature branches should be named like: 001-feature-name (or 'dev')" >&2
+        echo "Feature branches should be named like: feature/t006-test-fixtures or feature/123-session-cleanup (or 'dev')" >&2
         return 1
     fi
 
@@ -90,31 +145,49 @@ find_feature_dir_by_prefix() {
     local branch_name="$2"
     local specs_dir="$repo_root/specs"
 
+    local branch_ref="$branch_name"
+    if [[ "$branch_ref" =~ ^feature/(.+)$ ]]; then
+        branch_ref="${BASH_REMATCH[1]}"
+    fi
+
+    if [[ "$branch_ref" =~ ^(t[0-9]+)- ]]; then
+        local task_dir
+        task_dir=$(find_feature_dir_by_task_id "$repo_root" "${BASH_REMATCH[1]}")
+        if [[ -n "$task_dir" ]]; then
+            echo "$task_dir"
+            return
+        fi
+    fi
+
     # Extract numeric prefix from branch (e.g., "004" from "004-whatever")
-    if [[ ! "$branch_name" =~ ^([0-9]{3})- ]]; then
-        # For non-numeric branches (e.g., "dev"), find the latest spec directory
-        if [[ -d "$specs_dir" ]]; then
-            local latest_dir=""
-            local highest=0
-            for dir in "$specs_dir"/[0-9][0-9][0-9]-*; do
-                if [[ -d "$dir" ]]; then
-                    local dirname=$(basename "$dir")
-                    if [[ "$dirname" =~ ^([0-9]{3})- ]]; then
-                        local number=$((10#${BASH_REMATCH[1]}))
-                        if [[ "$number" -gt "$highest" ]]; then
-                            highest=$number
-                            latest_dir="$dir"
-                        fi
-                    fi
-                fi
-            done
+    if [[ ! "$branch_ref" =~ ^([0-9]{3})- ]]; then
+        if [[ "$branch_name" == "dev" ]]; then
+            local latest_dir
+            latest_dir=$(get_latest_spec_dir "$specs_dir")
             if [[ -n "$latest_dir" ]]; then
                 echo "$latest_dir"
                 return
             fi
         fi
+
+        if [[ -d "$specs_dir" ]]; then
+            local spec_count
+            spec_count=$(find "$specs_dir" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
+            if [[ "$spec_count" == "1" ]]; then
+                find "$specs_dir" -mindepth 1 -maxdepth 1 -type d | head -n 1
+                return
+            fi
+        fi
+
+        # For non-numeric branches (e.g., "dev"), find the latest spec directory
+        local latest_dir
+        latest_dir=$(get_latest_spec_dir "$specs_dir")
+        if [[ -n "$latest_dir" ]]; then
+            echo "$latest_dir"
+            return
+        fi
         # Final fallback to exact match
-        echo "$specs_dir/$branch_name"
+        echo "$specs_dir/$branch_ref"
         return
     fi
 
@@ -133,7 +206,7 @@ find_feature_dir_by_prefix() {
     # Handle results
     if [[ ${#matches[@]} -eq 0 ]]; then
         # No match found - return the branch name path (will fail later with clear error)
-        echo "$specs_dir/$branch_name"
+        echo "$specs_dir/$branch_ref"
     elif [[ ${#matches[@]} -eq 1 ]]; then
         # Exactly one match - perfect!
         echo "$specs_dir/${matches[0]}"
@@ -141,7 +214,7 @@ find_feature_dir_by_prefix() {
         # Multiple matches - this shouldn't happen with proper naming convention
         echo "ERROR: Multiple spec directories found with prefix '$prefix': ${matches[*]}" >&2
         echo "Please ensure only one spec directory exists per numeric prefix." >&2
-        echo "$specs_dir/$branch_name"  # Return something to avoid breaking the script
+        echo "$specs_dir/$branch_ref"  # Return something to avoid breaking the script
     fi
 }
 
