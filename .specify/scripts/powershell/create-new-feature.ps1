@@ -91,8 +91,12 @@ function Get-HighestNumberFromBranches {
                 # Clean branch name: remove leading markers and remote prefixes
                 $cleanBranch = $branch.Trim() -replace '^\*?\s+', '' -replace '^remotes/[^/]+/', ''
                 
-                # Extract feature number if branch matches pattern ###-*
-                if ($cleanBranch -match '^(\d+)-') {
+                # Extract feature number if branch matches pattern feature/###-* or legacy ###-*
+                if ($cleanBranch -match '^feature/(\d+)-') {
+                    $num = [int]$matches[1]
+                    if ($num -gt $highest) { $highest = $num }
+                }
+                elseif ($cleanBranch -match '^(\d+)-') {
                     $num = [int]$matches[1]
                     if ($num -gt $highest) { $highest = $num }
                 }
@@ -224,15 +228,16 @@ if ($Number -eq 0) {
 }
 
 $featureNum = ('{0:000}' -f $Number)
-$branchName = "$featureNum-$branchSuffix"
+$specDirName = "$featureNum-$branchSuffix"
+$branchName = "feature/$specDirName"
 
 # GitHub enforces a 244-byte limit on branch names
 # Validate and truncate if necessary
 $maxBranchLength = 244
 if ($branchName.Length -gt $maxBranchLength) {
     # Calculate how much we need to trim from suffix
-    # Account for: feature number (3) + hyphen (1) = 4 chars
-    $maxSuffixLength = $maxBranchLength - 4
+    # Account for: feature/ (8) + feature number (3) + hyphen (1) = 12 chars
+    $maxSuffixLength = $maxBranchLength - 12
     
     # Truncate suffix
     $truncatedSuffix = $branchSuffix.Substring(0, [Math]::Min($branchSuffix.Length, $maxSuffixLength))
@@ -240,7 +245,8 @@ if ($branchName.Length -gt $maxBranchLength) {
     $truncatedSuffix = $truncatedSuffix -replace '-$', ''
     
     $originalBranchName = $branchName
-    $branchName = "$featureNum-$truncatedSuffix"
+    $specDirName = "$featureNum-$truncatedSuffix"
+    $branchName = "feature/$specDirName"
     
     Write-Warning "[specify] Branch name exceeded GitHub's 244-byte limit"
     Write-Warning "[specify] Original: $originalBranchName ($($originalBranchName.Length) bytes)"
@@ -273,7 +279,7 @@ if ($hasGit) {
     Write-Warning "[specify] Warning: Git repository not detected; skipped branch creation for $branchName"
 }
 
-$featureDir = Join-Path $specsDir $branchName
+$featureDir = Join-Path $specsDir $specDirName
 New-Item -ItemType Directory -Path $featureDir -Force | Out-Null
 
 $template = Join-Path $repoRoot '.specify/templates/spec-template.md'
@@ -285,7 +291,7 @@ if (Test-Path $template) {
 }
 
 # Set the SPECIFY_FEATURE environment variable for the current session
-$env:SPECIFY_FEATURE = $branchName
+$env:SPECIFY_FEATURE = $specDirName
 
 if ($Json) {
     $obj = [PSCustomObject]@{ 
@@ -300,6 +306,6 @@ if ($Json) {
     Write-Output "SPEC_FILE: $specFile"
     Write-Output "FEATURE_NUM: $featureNum"
     Write-Output "HAS_GIT: $hasGit"
-    Write-Output "SPECIFY_FEATURE environment variable set to: $branchName"
+    Write-Output "SPECIFY_FEATURE environment variable set to: $specDirName"
 }
 
