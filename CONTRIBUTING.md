@@ -39,10 +39,7 @@ You are responsible for the code, not the AI.
 
 ## Module Rules
 
-See .cursor/rules/ — these rules apply whether you are writing manually or with AI.
-The most important ones:
-
-- All LLM calls go through fossops/llm/client.py only
-- All Docker SDK usage stays inside fossops/docker/
-- All SQLite access stays inside fossops/session/store.py
+- All LLM calls go through eduops/llm/client.py only
+- All Docker SDK usage stays inside eduops/docker/
+- All SQLite access stays inside eduops/session/store.py
 - API route handlers contain no business logic
