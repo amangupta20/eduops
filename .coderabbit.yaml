@@ -5,29 +5,44 @@ reviews:
     base_branches:
       - main
       - dev
+
+  path_filters:
+    - "**/*"
+
   instructions: |
     This project uses Spec-Driven Development via GitHub Spec Kit.
-    Specs live in root Tasks live in specs/feature/tasks.md.
+    Specs live in root. Tasks live in specs/feature/tasks.md.
 
-    On every PR enforce the following:
+    ## RULES BY PR TYPE
 
-    BLOCKING — fail the PR if any of these are violated:
+    ### PRs targeting dev (feature/* → dev)
+    These are code reviews. Enforce all of the following:
+
+    BLOCKING:
     - PR description must contain "closes #N" referencing a GitHub Issue
     - feature/* branches must target dev, never main
-    - Only dev may target main
     - No hardcoded API keys, model names, base URLs, or credentials anywhere
     - All LLM calls must go through eduops/llm/client.py only
     - No raw shell strings in any scenario JSON or Python code
     - No subprocess calls or shell=True for Docker operations
-    - docker SDK must only be imported inside the eduops/docker/ directory
+    - Docker SDK must only be imported inside the eduops/docker/ directory
     - sqlite3 must only be imported inside eduops/session/store.py
     - os.environ and config file reads must only appear in eduops/config.py
     - api/ route handlers must contain no business logic beyond calling a module function
     - React components must not call fetch() directly — all API calls go through src/api/
-    - Commit messages not following Conventional Commits format
+    - Commit messages must follow Conventional Commits format
 
-    WARNINGS — flag but do not block:
+    WARNINGS:
     - New Python functions without docstrings
     - New feature without a corresponding entry in specs/001-core-platform/
-    
 
+    ### PRs targeting main (dev → main)
+    This is a release checkpoint, not a code review.
+    All code in this PR was already reviewed on its way into dev.
+    Do the following instead:
+
+    - Verify the PR uses the release template (has "Tasks Completed" and "Release Summary" sections)
+    - Verify all listed issue numbers in "closes #N" actually exist and are open
+    - Do a light scan for any obviously critical issues that slipped through (hardcoded secrets, broken imports)
+    - Do NOT re-review code style, docstrings, or module boundaries — these were checked at the dev stage
+    - Flag only if something critical is found, otherwise approve with a summary of what's being released
