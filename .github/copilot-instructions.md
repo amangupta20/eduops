@@ -21,13 +21,15 @@ This project uses **SpecKit** — a structured spec-driven workflow with AI agen
 
 Every task from `tasks.md` gets its **own feature branch** off `dev`. Never implement more than one task per branch.
 
+Use `feature/<task-or-issue-id>-short-description` for implementation work. SpecKit-created spec branches should use `feature/<feature-id>-short-description` so they still map cleanly to `specs/<feature-id>-short-description`.
+
 ```bash
 git checkout dev
-git checkout -b feature/<task-id>-short-description
+git checkout -b feature/<task-or-issue-id>-short-description
 # implement the task (single function/component/file)
 git add <only relevant files>
 git commit -m "<type>(<scope>): <what>"  # conventional commits
-git push -u origin feature/<task-id>-short-description
+git push -u origin feature/<task-or-issue-id>-short-description
 # open PR → dev
 ```
 
