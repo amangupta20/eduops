@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Iterator
 
 import httpx
 import pytest
@@ -72,7 +72,7 @@ def db_path(tmp_path: Path) -> Path:
 
 
 @pytest.fixture()
-def db_conn(db_path: Path) -> sqlite3.Connection:
+def db_conn(db_path: Path) -> Iterator[sqlite3.Connection]:
     """Return an initialised SQLite connection with the full eduops schema.
 
     The connection uses ``sqlite3.Row`` as ``row_factory`` so rows can be
