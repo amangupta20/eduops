@@ -38,8 +38,9 @@ Tasks below reinforce this by: one function per task where possible, services sp
 **Purpose**: Project initialization, dependency declaration, and basic directory scaffolding
 
 - [x] T001 Create backend package in `backend/` — `pyproject.toml` with hatchling build, dependencies (fastapi, uvicorn[standard], docker, sentence-transformers[onnx], openai, httpx, sse-starlette, tomli, pydantic), [dev] extras (pytest, ruff, mypy), entry point `eduops = "eduops.cli:main"`; `src/eduops/__init__.py` with version; `src/eduops/__main__.py` invoking `cli.main()`
-- [ ] T002 [P] Scaffold frontend Vite + React + TypeScript project in `frontend/` — `package.json`, `vite.config.ts` (@ path alias, Tailwind CSS plugin, /api proxy to localhost:7337), `tsconfig.json`, `index.html`
-- [ ] T003 [P] Initialise shadcn/ui in `frontend/` — `components.json`, Tailwind CSS v4 with `@tailwindcss/vite`, install base components (button, card, badge, input, scroll-area, separator, dialog, toast) in `frontend/src/components/ui/`
+- [x] T002 [P] Scaffold frontend Vite + React + TypeScript project in `frontend/` — `package.json`, `vite.config.ts` (@ path alias, Tailwind CSS plugin, /api proxy to localhost:7337), `tsconfig.json`, `index.html`
+- [x] T003 [P] Initialise shadcn/ui in `frontend/` — `components.json`, Tailwind CSS v4 with `@tailwindcss/vite`, install base components (button, card, badge, input, scroll-area, separator, dialog, toast) in `frontend/src/components/ui/`
+
 - [ ] T004 [P] Create frontend routing skeleton in `frontend/src/main.tsx` and `frontend/src/App.tsx` — react-router BrowserRouter with routes: `/` → Home, `/session/:id` → Session
 - [ ] T005 [P] Define frontend TypeScript types mirroring API contracts in `frontend/src/types/index.ts` — Scenario, ScenarioDetail, ScenarioSearchResult, Session, ChatMessage, CheckResult, Review, HealthStatus, SSE event types
 - [x] T006 [P] Create `backend/tests/conftest.py` with shared pytest fixtures (temp SQLite DB path, test FastAPI client via httpx.AsyncClient)
@@ -54,8 +55,8 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ### Config & CLI
 
-- [ ] T007 [P] Define Config, LLMConfig, and ImagesConfig Pydantic models in `backend/src/eduops/config.py` — LLMConfig (provider, api_key, model, base_url), ImagesConfig with default approved list, top-level Config aggregating both
-- [ ] T008 Implement `load_config()` and `save_config()` TOML functions in `backend/src/eduops/config.py` — read/write `~/.eduops/config.toml`, handle missing file gracefully, derive `base_url` from provider (openai → default, gemini → googleapis, openrouter → openrouter.ai, custom → user-provided)
+- [x] T007 [P] Define Config, LLMConfig, and ImagesConfig Pydantic models in `backend/src/eduops/config.py` — LLMConfig (provider, api_key, model, base_url), ImagesConfig with default approved list, top-level Config aggregating both
+- [x] T008 Implement `load_config()` and `save_config()` TOML functions in `backend/src/eduops/config.py` — read/write `~/.eduops/config.toml`, handle missing file gracefully, derive `base_url` from provider (openai → default, gemini → googleapis, openrouter → openrouter.ai, custom → user-provided)
 - [ ] T018 Implement FastAPI app factory in `backend/src/eduops/app.py` — `create_app()` mounting API routers under `/api` prefix, serve frontend static files from `static/` directory with `StaticFiles(html=True)`, configure CORS for dev
 - [ ] T009 Implement CLI argument parsing and uvicorn launch in `backend/src/eduops/cli.py` — parse `eduops start` command with optional `--port` flag, launch `uvicorn` pointing to `eduops.app:app` on port 7337 (depends on T018)
 - [ ] T010 Implement interactive first-run LLM setup prompt in `backend/src/eduops/cli.py` — detect missing config, prompt for provider → API key → model, call `save_config()` to write `~/.eduops/config.toml`
