@@ -17,6 +17,7 @@ dependencies = [
     "httpx",
     "sse-starlette",
     "tomli",
+    "tomli-w",
     "pydantic"
 ]
 

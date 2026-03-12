@@ -1,9 +1,10 @@
-import json
+import os
 from pathlib import Path
 from typing import Literal
 
 import tomli
-from pydantic import BaseModel
+import tomli_w
+from pydantic import BaseModel, ValidationError
 
 
 class LLMConfig(BaseModel):
@@ -52,6 +53,9 @@ def load_config() -> Config | None:
 
     llm_data = data["llm"]
     provider = llm_data.get("provider", "openai")
+    # Write the defaulted provider back so Pydantic sees it
+    if "provider" not in llm_data:
+        llm_data["provider"] = provider
     base_url = llm_data.get("base_url", "")
 
     # Derive base_url from provider if not explicitly provided
@@ -64,22 +68,27 @@ def load_config() -> Config | None:
             base_url = "https://openrouter.ai/api/v1"
         llm_data["base_url"] = base_url
 
-    return Config(**data)
+    try:
+        return Config(**data)
+    except ValidationError:
+        return None
 
 
 def save_config(config: Config) -> None:
     config_path = get_config_path()
     config_path.parent.mkdir(parents=True, exist_ok=True)
 
-    lines = [
-        "[llm]",
-        f'provider = "{config.llm.provider}"',
-        f'api_key = "{config.llm.api_key}"',
-        f'model = "{config.llm.model}"',
-        f'base_url = "{config.llm.base_url}"',
-        "",
-        "[images]",
-        f"approved = {json.dumps(config.images.approved)}",
-    ]
-
-    config_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    data = {
+        "llm": {
+            "provider": config.llm.provider,
+            "api_key": config.llm.api_key,
+            "model": config.llm.model,
+            "base_url": config.llm.base_url,
+        },
+        "images": {
+            "approved": config.images.approved,
+        },
+    }
+    config_path.write_bytes(tomli_w.dumps(data).encode("utf-8"))
+    # Restrict permissions to owner-only since the file contains the API key
+    os.chmod(config_path, 0o600)
