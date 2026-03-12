@@ -5,6 +5,7 @@ import uvicorn
 
 
 def main() -> int:
+    """Entry point for the eduops CLI."""
     parser = argparse.ArgumentParser(description="eduops CLI")
     subparsers = parser.add_subparsers(dest="command", required=True, help="Available commands")
 
@@ -22,7 +23,7 @@ def main() -> int:
         uvicorn.run("eduops.app:app", host="127.0.0.1", port=args.port)
         return 0
 
-    return 1
+    return 0
 
 
 if __name__ == "__main__":
