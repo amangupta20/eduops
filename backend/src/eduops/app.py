@@ -10,11 +10,13 @@ def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     app = FastAPI(title="eduops Core Platform")
 
-    # Configure CORS for development
+    # Configure CORS for development — allow all origins (no credentials needed;
+    # the Vite dev proxy forwards /api requests, so cookies/auth headers are not
+    # used across origins during development)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Allowing all origins for dev proxy compatibility
-        allow_credentials=True,
+        allow_origins=["*"],
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -22,8 +24,9 @@ def create_app() -> FastAPI:
     # Mount API routers
     app.include_router(api_router, prefix="/api")
 
-    # Serve static files from the 'static/' directory if it exists
-    # When installed as a package, frontend/dist is included as eduops/static
+    # Serve static files from the 'static/' directory if it exists.
+    # In packaged installs, the built frontend (frontend/dist) is expected
+    # to be placed here by the packaging configuration (see T097).
     static_dir = Path(__file__).parent / "static"
     if static_dir.exists() and static_dir.is_dir():
         app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
