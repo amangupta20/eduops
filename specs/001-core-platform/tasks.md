@@ -55,7 +55,7 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ### Config & CLI
 
-- [ ] T007 [P] Define Config, LLMConfig, and ImagesConfig Pydantic models in `backend/src/eduops/config.py` — LLMConfig (provider, api_key, model, base_url), ImagesConfig with default approved list, top-level Config aggregating both
+- [x] T007 [P] Define Config, LLMConfig, and ImagesConfig Pydantic models in `backend/src/eduops/config.py` — LLMConfig (provider, api_key, model, base_url), ImagesConfig with default approved list, top-level Config aggregating both
 - [ ] T008 Implement `load_config()` and `save_config()` TOML functions in `backend/src/eduops/config.py` — read/write `~/.eduops/config.toml`, handle missing file gracefully, derive `base_url` from provider (openai → default, gemini → googleapis, openrouter → openrouter.ai, custom → user-provided)
 - [ ] T018 Implement FastAPI app factory in `backend/src/eduops/app.py` — `create_app()` mounting API routers under `/api` prefix, serve frontend static files from `static/` directory with `StaticFiles(html=True)`, configure CORS for dev
 - [ ] T009 Implement CLI argument parsing and uvicorn launch in `backend/src/eduops/cli.py` — parse `eduops start` command with optional `--port` flag, launch `uvicorn` pointing to `eduops.app:app` on port 7337 (depends on T018)
