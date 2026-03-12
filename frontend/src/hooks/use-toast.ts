@@ -3,6 +3,7 @@ import * as React from "react";
 import type { ToastActionElement, ToastProps } from "@/components/ui/toast";
 
 const TOAST_LIMIT = 1;
+// Intentionally long delay (~16.6 min) — toasts remain visible until the user explicitly dismisses them.
 const TOAST_REMOVE_DELAY = 1000000;
 
 type ToasterToast = ToastProps & {
@@ -120,6 +121,9 @@ export const reducer = (state: State, action: Action): State => {
         ...state,
         toasts: state.toasts.filter((toast) => toast.id !== action.toastId),
       };
+
+    default:
+      return state;
   }
 };
 
@@ -139,7 +143,7 @@ type Toast = Omit<ToasterToast, "id">;
 function toast({ ...props }: Toast) {
   const id = genId();
 
-  const update = (next: ToasterToast) =>
+  const update = (next: Partial<ToasterToast>) =>
     dispatch({
       type: "UPDATE_TOAST",
       toast: { ...next, id },
@@ -183,7 +187,8 @@ function useToast() {
         listeners.splice(index, 1);
       }
     };
-  }, [state]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return {
     ...state,
