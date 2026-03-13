@@ -5,7 +5,18 @@ from typing import Literal, cast
 
 import uvicorn
 
-from eduops.config import Config, LLMConfig, load_config, save_config
+from eduops.config import Config, LLMConfig, load_config, save_config, get_config_path
+
+
+def get_default_model(provider: str) -> str:
+    """Return the default model string based on the provider."""
+    if provider == "gemini":
+        return "gemini-3-flash-preview"
+    elif provider == "openrouter":
+        return "openai/gpt-4o-mini"
+    elif provider == "openai":
+        return "gpt-4o-mini"
+    return "gpt-4o-mini"
 
 
 def interactive_setup() -> None:
@@ -37,8 +48,7 @@ def interactive_setup() -> None:
         if not api_key:
             print("API key is required.")
 
-    # Based on search results, the exact model name for Gemini 3 Flash is gemini-3-flash-preview
-    default_model = "gemini-3-flash-preview" if provider == "gemini" else "gpt-4o-mini"
+    default_model = get_default_model(provider)
     model = input(
         f"Enter the default model to use (default: {default_model}): "
     ).strip()
@@ -57,7 +67,12 @@ def interactive_setup() -> None:
         provider=provider_literal, api_key=api_key, model=model, base_url=base_url
     )
     config = Config(llm=llm_config)
-    save_config(config)
+    try:
+        save_config(config)
+    except OSError as e:
+        print(f"\nError saving configuration to {get_config_path()}: {e}")
+        print("Please check your file system permissions and try again.")
+        sys.exit(1)
     print("\nConfiguration saved successfully to ~/.eduops/config.toml!\n")
 
 
@@ -79,13 +94,18 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.command == "start":
-        config = load_config()
-        if config is None:
+        config_path = get_config_path()
+        if not config_path.exists():
             try:
                 interactive_setup()
             except (KeyboardInterrupt, EOFError):
                 print("\nSetup cancelled. Exiting.")
                 return 1
+        elif load_config() is None:
+            print(
+                "Existing config is invalid. Please fix ~/.eduops/config.toml and retry."
+            )
+            return 1
 
         uvicorn.run("eduops.app:app", host="127.0.0.1", port=args.port)
         return 0
