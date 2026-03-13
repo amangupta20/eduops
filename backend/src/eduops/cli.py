@@ -37,7 +37,8 @@ def interactive_setup() -> None:
         if not api_key:
             print("API key is required.")
 
-    default_model = "gemini-2.5-flash" if provider == "gemini" else "gpt-4o-mini"
+    # Based on search results, the exact model name for Gemini 3 Flash is gemini-3-flash-preview
+    default_model = "gemini-3-flash-preview" if provider == "gemini" else "gpt-4o-mini"
     model = input(
         f"Enter the default model to use (default: {default_model}): "
     ).strip()
