@@ -94,7 +94,7 @@ export interface DroppedEvent {
 export type SessionEndedEvent = Record<string, never>;
 
 export interface HealthStatus {
-    status: string;
+    status: "ok";
     docker: boolean;
     llm_configured: boolean;
     active_session: string | null;
