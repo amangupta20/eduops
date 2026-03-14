@@ -91,7 +91,7 @@ export interface DroppedEvent {
     message: string;
 }
 
-export type SessionEndedEvent = {};
+export type SessionEndedEvent = Record<string, never>;
 
 export interface HealthStatus {
     status: string;
