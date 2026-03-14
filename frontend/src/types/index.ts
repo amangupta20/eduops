@@ -91,10 +91,8 @@ export interface DroppedEvent {
     message: string;
 }
 
-export interface SessionEndedEvent {
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-  { }
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface SessionEndedEvent { }
 
 export interface HealthStatus {
     status: string;
