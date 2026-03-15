@@ -31,3 +31,27 @@ class RunContainer(BaseModel):
     detach: bool = True
 
 SetupAction = PullImage | BuildImage | CreateNetwork | CreateVolume | RunContainer
+
+class ContainerRunning(BaseModel):
+    type: Literal["container_running"]
+    name: str
+
+class PortResponds(BaseModel):
+    type: Literal["port_responds"]
+    port: int
+    path: str = "/"
+    expect_status: int = 200
+    expect_body: str | None = None
+
+class DockerExec(BaseModel):
+    type: Literal["docker_exec"]
+    container: str
+    command: list[str]
+    expect_stdout: str
+
+class FileInWorkspace(BaseModel):
+    type: Literal["file_in_workspace"]
+    path: str
+    expect_content: str | None = None
+
+SuccessCheck = ContainerRunning | PortResponds | DockerExec | FileInWorkspace
