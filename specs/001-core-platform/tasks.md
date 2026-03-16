@@ -64,7 +64,7 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ### Database
 
-- [ ] T012 [P] Implement SQLite schema DDL and `init_db()` in `backend/src/eduops/db.py` — create four tables (scenarios, sessions, hint_log, chat_log) per schema from data-model.md, ensure idempotent with IF NOT EXISTS, create all indexes
+- [x] T012 [P] Implement SQLite schema DDL and `init_db()` in `backend/src/eduops/db.py` — create four tables (scenarios, sessions, hint_log, chat_log) per schema from data-model.md, ensure idempotent with IF NOT EXISTS, create all indexes
 - [ ] T013 Implement SQLite query helpers in `backend/src/eduops/db.py` — `get_db(path)` context manager yielding connection with row_factory, `execute()`, `fetchone()`, `fetchall()` parameterised query wrappers
 
 ### Domain Models
