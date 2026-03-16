@@ -67,20 +67,39 @@ CREATE INDEX IF NOT EXISTS idx_chat_log_session_time ON chat_log(session_id, cre
 _DEFAULT_DB_PATH = Path.home() / ".eduops" / "eduops.db"
 
 
+def _connect(db_path: Path) -> sqlite3.Connection:
+    """Open a SQLite connection with foreign-key enforcement enabled.
+
+    SQLite does not enforce REFERENCES constraints unless
+    ``PRAGMA foreign_keys = ON`` is set for every connection.  This
+    helper ensures that constraint is always active.
+
+    Args:
+        db_path: Absolute, resolved path to the database file.
+
+    Returns:
+        An open ``sqlite3.Connection`` with foreign keys enabled.
+    """
+    conn = sqlite3.connect(db_path)
+    conn.execute("PRAGMA foreign_keys = ON;")
+    return conn
+
+
 def init_db(path: Path | None = None) -> None:
     """Create all four tables and their indexes if they do not already exist.
 
     Idempotent — safe to call on every startup.
 
     Args:
-        path: Absolute path to the SQLite database file.  Defaults to
+        path: Path to the SQLite database file.  ``~`` is expanded and the
+              result is resolved to an absolute path.  Defaults to
               ``~/.eduops/eduops.db``.  Parent directories are created
               automatically.
     """
-    db_path = path or _DEFAULT_DB_PATH
+    db_path = Path(path or _DEFAULT_DB_PATH).expanduser().resolve()
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
-    conn = sqlite3.connect(db_path)
+    conn = _connect(db_path)
     try:
         conn.executescript(_DDL)
         conn.commit()
