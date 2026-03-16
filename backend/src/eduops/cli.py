@@ -3,7 +3,9 @@ import getpass
 import sys
 from typing import Literal, cast
 
+import docker  # type: ignore
 import uvicorn
+from docker.errors import DockerException  # type: ignore
 
 from eduops.config import Config, LLMConfig, load_config, save_config, get_config_path
 
@@ -76,6 +78,24 @@ def interactive_setup() -> None:
     print("\nConfiguration saved successfully to ~/.eduops/config.toml!\n")
 
 
+def check_docker() -> bool:
+    """Check if the Docker daemon is reachable.
+
+    Returns:
+        bool: True if Docker is reachable, False otherwise.
+    """
+    try:
+        client = docker.from_env()
+        return client.ping()
+    except DockerException as e:
+        print(
+            "Error: Docker daemon is unreachable. Please ensure Docker is installed and running.\n"
+            f"Details: {e}",
+            file=sys.stderr,
+        )
+        return False
+
+
 def main() -> int:
     """Entry point for the eduops CLI."""
     parser = argparse.ArgumentParser(description="eduops CLI")
@@ -94,6 +114,9 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.command == "start":
+        if not check_docker():
+            return 1
+
         config_path = get_config_path()
         if not config_path.exists():
             try:
