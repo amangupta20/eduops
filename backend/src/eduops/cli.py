@@ -84,9 +84,16 @@ def check_docker() -> bool:
     Returns:
         bool: True if Docker is reachable, False otherwise.
     """
+    client = None
     try:
-        client = docker.from_env()
-        return client.ping()
+        client = docker.from_env(timeout=5)
+        if not client.ping():
+            print(
+                "Error: Docker daemon is unreachable. Please ensure Docker is installed and running.",
+                file=sys.stderr,
+            )
+            return False
+        return True
     except DockerException as e:
         print(
             "Error: Docker daemon is unreachable. Please ensure Docker is installed and running.\n"
@@ -94,6 +101,9 @@ def check_docker() -> bool:
             file=sys.stderr,
         )
         return False
+    finally:
+        if client is not None:
+            client.close()
 
 
 def main() -> int:
