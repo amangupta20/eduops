@@ -85,6 +85,14 @@ def test_execute_commit_false_defers_write_until_manual_commit(db_path: Path) ->
         )
         # Same connection sees uncommitted row.
         assert fetchone(conn, "SELECT id FROM scenarios WHERE id = ?", ("s2",)) is not None
+        conn.commit()
+
+        # Explicit commit persists deferred write.
+        assert fetchone(conn, "SELECT id FROM scenarios WHERE id = ?", ("s2",)) is not None
+
+        # Keep test self-contained by cleaning the inserted row.
+        execute(conn, "DELETE FROM scenarios WHERE id = ?", ("s2",), commit=True)
+
         conn.rollback()
 
         # Rollback removed deferred write.
