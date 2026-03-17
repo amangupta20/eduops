@@ -65,3 +65,50 @@ def test_execute_and_fetch_wrappers_are_parameterized(db_path: Path) -> None:
     assert row["created_at"] == created_at
     assert len(rows) == 1
     assert rows[0]["id"] == scenario_id
+
+
+def test_execute_commit_false_defers_write_until_manual_commit(db_path: Path) -> None:
+    """execute(..., commit=False) should not persist data until conn.commit()."""
+    init_db(db_path)
+
+    with get_db(db_path) as conn:
+        execute(
+            conn,
+            (
+                "INSERT INTO scenarios "
+                "(id, title, description, difficulty, tags, source, schema_json, embedding, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            ),
+            ("s2", "t", "d", "easy", "[]", "bundled", "{}", b"\x00" * 1536, "now"),
+            commit=False,
+        )
+        # Same connection sees uncommitted row.
+        assert fetchone(conn, "SELECT id FROM scenarios WHERE id = ?", ("s2",)) is not None
+        conn.rollback()
+
+        # Rollback removed deferred write.
+        assert fetchone(conn, "SELECT id FROM scenarios WHERE id = ?", ("s2",)) is None
+
+
+def test_get_db_rolls_back_on_exception(db_path: Path) -> None:
+    """get_db should rollback pending writes when exiting due to an exception."""
+    init_db(db_path)
+
+    try:
+        with get_db(db_path) as conn:
+            execute(
+                conn,
+                (
+                    "INSERT INTO scenarios "
+                    "(id, title, description, difficulty, tags, source, schema_json, embedding, created_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                ),
+                ("s3", "t", "d", "easy", "[]", "bundled", "{}", b"\x00" * 1536, "now"),
+                commit=False,
+            )
+            raise RuntimeError("force rollback")
+    except RuntimeError:
+        pass
+
+    with get_db(db_path) as conn:
+        assert fetchone(conn, "SELECT id FROM scenarios WHERE id = ?", ("s3",)) is None

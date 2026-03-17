@@ -94,6 +94,9 @@ def _connect(db_path: Path) -> sqlite3.Connection:
 def get_db(path: Path | None = None) -> Iterator[sqlite3.Connection]:
     """Yield a SQLite connection configured for keyed row access.
 
+    This context manager wraps work in a transaction-like lifecycle:
+    commit on normal exit and rollback if an exception escapes.
+
     Args:
         path: Optional database path. Uses ``~/.eduops/eduops.db`` when omitted.
 
@@ -107,18 +110,35 @@ def get_db(path: Path | None = None) -> Iterator[sqlite3.Connection]:
     conn.row_factory = sqlite3.Row
     try:
         yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
 
-def execute(conn: sqlite3.Connection, query: str, params: _SQLParams = ()) -> sqlite3.Cursor:
-    """Execute a parameterised write/query statement and commit.
+def execute(
+    conn: sqlite3.Connection,
+    query: str,
+    params: _SQLParams = (),
+    commit: bool = True,
+) -> sqlite3.Cursor:
+    """Execute a parameterised write/query statement.
 
     ``params`` are always bound via sqlite placeholders (``?`` / named params),
     preventing string interpolation in SQL execution paths.
+
+    Args:
+        conn: Active SQLite connection.
+        query: SQL statement with placeholders.
+        params: Positional or named parameters to bind.
+        commit: When ``True`` (default), commit immediately after execution.
+                Set to ``False`` for batched writes and commit once at the end.
     """
     cur = conn.execute(query, params)
-    conn.commit()
+    if commit:
+        conn.commit()
     return cur
 
 
