@@ -1,11 +1,17 @@
+import { Navigate, Route, Routes } from 'react-router-dom'
+
 import { Toaster } from "@/components/ui/toaster";
+import Home from './pages/Home'
+import Session from './pages/Session'
 
 function App() {
   return (
     <>
-      <div className="p-4">
-        <h1 className="text-2xl font-bold">eduops Frontend Scaffolded</h1>
-      </div>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/session/:id" element={<Session />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
       <Toaster />
     </>
   );

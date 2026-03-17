@@ -41,7 +41,7 @@ Tasks below reinforce this by: one function per task where possible, services sp
 - [x] T002 [P] Scaffold frontend Vite + React + TypeScript project in `frontend/` — `package.json`, `vite.config.ts` (@ path alias, Tailwind CSS plugin, /api proxy to localhost:7337), `tsconfig.json`, `index.html`
 - [x] T003 [P] Initialise shadcn/ui in `frontend/` — `components.json`, Tailwind CSS v4 with `@tailwindcss/vite`, install base components (button, card, badge, input, scroll-area, separator, dialog, toast) in `frontend/src/components/ui/`
 
-- [ ] T004 [P] Create frontend routing skeleton in `frontend/src/main.tsx` and `frontend/src/App.tsx` — react-router BrowserRouter with routes: `/` → Home, `/session/:id` → Session
+- [x] T004 [P] Create frontend routing skeleton in `frontend/src/main.tsx` and `frontend/src/App.tsx` — react-router BrowserRouter with routes: `/` → Home, `/session/:id` → Session
 - [x] T005 [P] Define frontend TypeScript types mirroring API contracts in `frontend/src/types/index.ts` — Scenario, ScenarioDetail, ScenarioSearchResult, Session, ChatMessage, CheckResult, Review, HealthStatus, SSE event types
 - [x] T006 [P] Create `backend/tests/conftest.py` with shared pytest fixtures (temp SQLite DB path, test FastAPI client via httpx.AsyncClient)
 
