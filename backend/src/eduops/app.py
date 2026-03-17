@@ -5,10 +5,32 @@ from fastapi.staticfiles import StaticFiles
 
 from eduops.api import api_router
 
+from contextlib import asynccontextmanager
+import logging
+
+# Note: You may need to adjust this import path depending on where T012 put init_db
+from eduops.db import init_db
+
+logger = logging.getLogger(__name__)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- STARTUP HOOK ---
+    logger.info("Initializing EduOps database...")
+    init_db()
+    
+    # The server runs while paused at this yield statement
+    yield  
+    
+    # --- SHUTDOWN HOOK ---
+    logger.info("Shutting down EduOps platform. Running cleanup...")
+    # Placeholder for future teardown logic (e.g., stopping orphaned Docker containers)
+    pass
+
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
-    app = FastAPI(title="eduops Core Platform")
+    app = FastAPI(title="eduops Core Platform",lifespan=lifespan)
 
     # Configure CORS for development — allow all origins (no credentials needed;
     # the Vite dev proxy forwards /api requests, so cookies/auth headers are not
