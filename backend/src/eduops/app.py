@@ -1,14 +1,33 @@
+import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from eduops.api import api_router
+# NOTE: Verify this import matches where your init_db function was created in T012!
+from eduops.db import init_db 
 
+logger = logging.getLogger(__name__)
 
-def create_app() -> FastAPI:
+def create_app(db_path: Path | None = None) -> FastAPI:
     """Create and configure the FastAPI application."""
-    app = FastAPI(title="eduops Core Platform")
+    
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        logger.info("Initializing EduOps database...")
+        # We pass the db_path to init_db to prevent side effects in testing
+        init_db(db_path)
+        
+        yield
+        
+        logger.info("Shutting down EduOps platform. Running cleanup...")
+        # Placeholder hook for cleanup
+        pass
+
+    # We attach the lifespan manager right when we create the FastAPI instance
+    app = FastAPI(title="eduops Core Platform", lifespan=lifespan)
 
     # Configure CORS for development — allow all origins (no credentials needed;
     # the Vite dev proxy forwards /api requests, so cookies/auth headers are not
@@ -32,7 +51,6 @@ def create_app() -> FastAPI:
         app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
 
     return app
-
 
 # Module-level app instance for uvicorn
 app = create_app()
