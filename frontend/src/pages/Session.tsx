@@ -1,7 +1,7 @@
 import { useParams } from "react-router-dom";
 
 export default function Session(): JSX.Element {
-    const { id } = useParams<{ id: string }>();
+    const { id } = useParams<"id">();
 
     return (
         <main>
