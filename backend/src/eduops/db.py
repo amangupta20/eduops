@@ -122,7 +122,7 @@ def execute(
     conn: sqlite3.Connection,
     query: str,
     params: _SQLParams = (),
-    commit: bool = True,
+    commit: bool = False,
 ) -> sqlite3.Cursor:
     """Execute a parameterised write/query statement.
 
@@ -133,8 +133,8 @@ def execute(
         conn: Active SQLite connection.
         query: SQL statement with placeholders.
         params: Positional or named parameters to bind.
-        commit: When ``True`` (default), commit immediately after execution.
-                Set to ``False`` for batched writes and commit once at the end.
+        commit: When ``True``, commit immediately after execution.
+            Defaults to ``False`` so transaction contexts can control commit.
     """
     cur = conn.execute(query, params)
     if commit:

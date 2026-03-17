@@ -55,6 +55,7 @@ def test_execute_and_fetch_wrappers_are_parameterized(db_path: Path) -> None:
                 b"\x00" * 1536,
                 created_at,
             ),
+            commit=True,
         )
 
         row = fetchone(conn, "SELECT id, created_at FROM scenarios WHERE id = ?", (scenario_id,))
