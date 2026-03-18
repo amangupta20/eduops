@@ -3,14 +3,14 @@ import type { HealthStatus } from "../types";
 const API_BASE_URL = "/api";
 
 interface ErrorResponse {
-    detail?: string;
+    detail?: unknown;
 }
 
 export class ApiError extends Error {
     status: number | null;
-    detail?: string;
+    detail?: unknown;
 
-    constructor(message: string, status: number | null = null, detail?: string) {
+    constructor(message: string, status: number | null = null, detail?: unknown) {
         super(message);
         this.name = "ApiError";
         this.status = status;
@@ -38,7 +38,15 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
             headers: requestHeaders,
             body: body === undefined ? undefined : JSON.stringify(body),
         });
-    } catch {
+    } catch (error) {
+        if (
+            error instanceof DOMException
+                ? error.name === "AbortError"
+                : error instanceof Error && error.name === "AbortError"
+        ) {
+            throw error;
+        }
+
         throw new ApiError("Network error. Please check your connection and backend server.");
     }
 
@@ -60,7 +68,21 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     if (!response.ok) {
         const errorPayload = payload as ErrorResponse | null;
         const detail = errorPayload?.detail;
-        const message = detail ?? `Request failed with status ${response.status}`;
+        let message = `Request failed with status ${response.status}`;
+
+        if (typeof detail === "string" && detail.length > 0) {
+            message = detail;
+        } else if (detail !== undefined) {
+            try {
+                const serialized = JSON.stringify(detail);
+
+                if (serialized && serialized !== "{}" && serialized !== "[]") {
+                    message = serialized;
+                }
+            } catch {
+                // Keep the fallback status message when detail cannot be serialized.
+            }
+        }
 
         throw new ApiError(message, response.status, detail);
     }
