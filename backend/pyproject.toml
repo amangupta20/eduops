@@ -34,3 +34,4 @@ eduops = "eduops.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/eduops"]
+include = ["/src/eduops/scenarios"]
