@@ -2,6 +2,12 @@ from pathlib import PurePosixPath
 from typing import Annotated, Literal
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
+# The single source of truth for approved external Docker images
+APPROVED_IMAGE_LIST = [
+    "nginx:alpine", "httpd:alpine", "python:3.11-slim",
+    "alpine:3", "busybox:latest", "node:20-alpine"
+]
+
 # --- SETUP ACTIONS (Task 14) ---
 
 class SetupActionBase(BaseModel):
@@ -14,11 +20,8 @@ class PullImage(SetupActionBase):
     @field_validator("image")
     @classmethod
     def validate_approved_image(cls, value: str) -> str:
-        approved = [
-            "nginx:alpine", "httpd:alpine", "python:3.11-slim",
-            "alpine:3", "busybox:latest", "node:20-alpine"
-        ]
-        if value not in approved:
+        # Use the shared constant!
+        if value not in APPROVED_IMAGE_LIST:
             raise ValueError(f"Image '{value}' is not in the approved list. Use build_image for custom setups.")
         return value
 
@@ -91,3 +94,60 @@ SuccessCheck = Annotated[
     ContainerRunning | PortResponds | DockerExec | FileInWorkspace,
     Field(discriminator="type")
 ]
+
+# --- SCENARIO SCHEMA & WORKSPACE (Task 16) ---
+
+class WorkspaceFile(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    path: str
+    content: str
+
+    @field_validator("path")
+    @classmethod
+    def validate_workspace_relative_path(cls, value: str) -> str:
+        # Note: PurePosixPath should already be imported at the top of the file from T015!
+        p = PurePosixPath(value)
+        if p.is_absolute() or ".." in p.parts:
+            raise ValueError("path must be workspace-relative and must not contain '..'")
+        return value
+    
+class ScenarioSchema(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    id: str
+    name: str
+    description: str
+    setup_actions: list[SetupAction]
+    # default_factory prevents mutable shared state across instances
+    expected_containers: list[str] = Field(default_factory=list) 
+    success_checks: list[SuccessCheck]
+    hints: list[str] = Field(default_factory=list)
+    review_context: str | None = None
+    workspace_files: list[WorkspaceFile] = Field(default_factory=list)
+
+def validate_approved_images(schema: ScenarioSchema, approved_list: list[str] | None = None) -> bool:
+    """
+    Validates that all image references in the scenario's setup actions
+    are present in the provided approved_list (defaults to APPROVED_IMAGE_LIST), 
+    or were built locally.
+    Raises ValueError if an unapproved image is found.
+    """
+    # Default to our shared constant if no list is provided
+    if approved_list is None:
+        approved_list = APPROVED_IMAGE_LIST
+        
+    approved_images = set(approved_list)
+    
+    # 1. Gather all tags that are built locally within this exact scenario
+    built_tags = {
+        action.tag for action in schema.setup_actions 
+        if getattr(action, "action", None) == "build_image"
+    }
+
+    # 2. Validate any action that tries to use an image
+    for action in schema.setup_actions:
+        if hasattr(action, "image"):
+            # Allow it if it's approved OR if we just built it locally
+            if action.image not in approved_images and action.image not in built_tags:
+                raise ValueError(f"Image '{action.image}' is not in the approved list and was not built locally.")
+                
+    return True
