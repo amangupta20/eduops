@@ -1,17 +1,20 @@
 # eduops — AI Agent Instructions
 
-## Current Repository State
+## Before You Start: Inspect the Repo
 
-This is a **spec-complete, implementation-empty** repo. All design work is done; no source code exists yet. The only existing assets are:
-
-- `specs/001-core-platform/` — all design documents (spec, plan, tasks, data-model, contracts, quickstart, research)
-- `.specify/memory/constitution.md` — highest-authority governance document
-- `.github/agents/` — SpecKit agent files (Copilot Chat agents)
-- `.github/prompts/` — SpecKit prompt files
+> [!IMPORTANT]
+> **Do NOT assume the implementation state.** Before starting any task, inspect the actual codebase to understand what already exists. Specifically:
+>
+> 1. **Read `specs/001-core-platform/tasks.md`** — check which tasks are marked `[X]` (done), `[/]` (in progress), or `[ ]` (pending). This is the single source of truth for implementation progress.
+> 2. **Browse `backend/src/eduops/`** — check which modules and service files have real implementations vs. empty stubs.
+> 3. **Browse `frontend/src/`** — check which pages, components, and services have real implementations vs. placeholders.
+> 4. **Check the active branch** (`git branch --show-current`) and recent commits (`git log --oneline -10`) to understand what was worked on last.
+>
+> Never duplicate work that already exists. Never skip dependencies that are still unfinished.
 
 ## What is SpecKit?
 
-This project uses **SpecKit** — a structured spec-driven workflow with AI agents. Key SpecKit agents:
+This project uses **SpecKit** — a structured spec-driven workflow with AI agents:
 
 - **`/speckit.implement`** — primary agent for executing tasks from `tasks.md`, phase by phase
 - Agents live in `.github/agents/`, prompts in `.github/prompts/`
@@ -33,7 +36,7 @@ git push -u origin feature/<task-or-issue-id>-short-description
 # open PR → dev
 ```
 
-**Conventional commit types**: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `style`  
+**Conventional commit types**: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `style`
 **Commit after every single task** — never batch multiple tasks in one commit.
 
 **Example**: Task T007 → branch `feature/t007-config-models`, commit `feat(config): add Config, LLMConfig, ImagesConfig Pydantic models`
@@ -66,6 +69,9 @@ backend/src/eduops/          frontend/src/
 
 **Layering rule**: API → Services → Models → DB. No layer skipping. Services hold business logic. API is thin.
 
+> [!NOTE]
+> This tree shows the **target** architecture. Some files may not exist yet. Always check tasks.md and the filesystem before assuming a file needs creating.
+
 ## Non-Negotiable Constraints (Constitution)
 
 These override any other consideration. See `.specify/memory/constitution.md` for full rationale.
@@ -80,16 +86,14 @@ These override any other consideration. See `.specify/memory/constitution.md` fo
 8. **Blocking checks off event loop** — `run_checks()` is sync and must be called via `await asyncio.to_thread(...)` from the API layer.
 9. **User-supplied LLM key** — config at `~/.eduops/config.toml` (TOML). eduops never proxies or stores keys beyond that file.
 
-## Task Execution Order
+## Task Execution
 
-Tasks are in `specs/001-core-platform/tasks.md`. Execute strictly by phase:
+Tasks are defined in `specs/001-core-platform/tasks.md` and organised by phase. Execute strictly in order:
 
-1. **Phase 1 (T001–T006)**: Setup — `pyproject.toml`, Vite scaffold, shadcn/ui, routing skeleton, TS types, test fixtures
-2. **Phase 2 (T007–T022)**: Foundational — config, CLI, DB, Pydantic models, FastAPI app shell. **Nothing else starts until this is done.**
-3. **Phase 3 (T023–T051)**: US1 MVP — catalogue, Docker executor, SSE logs, bundled scenarios, frontend catalogue + session
-4. **Phase 4–8**: US2 → US6 → Polish
-
-Tasks marked `[P]` can run in parallel (separate files, no unfinished deps). Mark tasks `[X]` in `tasks.md` when complete.
+- **Read tasks.md first** to understand the phase structure and dependency chain.
+- Tasks marked `[P]` can run in parallel (separate files, no unfinished deps).
+- Mark tasks `[X]` in `tasks.md` when complete.
+- **Never start a task whose dependencies are incomplete** — check the `[X]`/`[ ]` markers.
 
 ## Dev Commands
 
