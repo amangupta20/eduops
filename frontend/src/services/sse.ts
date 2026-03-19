@@ -17,7 +17,7 @@ export interface SseClient {
     onDropped: (handler: (event: DroppedEvent) => void) => SseClient;
     onSessionEnded: (handler: (event: SessionEndedEvent) => void) => SseClient;
     onError: (handler: (event: Event) => void) => SseClient;
-    /** Closes the SSE connection and cleans up listeners. */
+    /** Closes the underlying EventSource connection. */
     disconnect: () => void;
 }
 
@@ -79,6 +79,8 @@ export function connectLogStream(sessionId: string): SseClient {
     eventSource.addEventListener("error", (e) => {
         if (errorHandler) {
             errorHandler(e);
+        } else {
+            console.error("SSE connection error", e);
         }
     });
 
