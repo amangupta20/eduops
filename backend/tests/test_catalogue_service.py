@@ -216,7 +216,10 @@ def test_list_and_get_return_empty_tags_for_invalid_payloads(db_path: Path) -> N
     assert listed_by_id["invalid-json-tags"]["tags"] == []
     assert listed_by_id["json-non-list-tags"]["tags"] == []
 
-    assert get_scenario("invalid-json-tags", db_path=db_path) is not None
-    assert get_scenario("invalid-json-tags", db_path=db_path)["tags"] == []
-    assert get_scenario("json-non-list-tags", db_path=db_path) is not None
-    assert get_scenario("json-non-list-tags", db_path=db_path)["tags"] == []
+    result = get_scenario("invalid-json-tags", db_path=db_path)
+    assert result is not None
+    assert result["tags"] == []
+
+    result = get_scenario("json-non-list-tags", db_path=db_path)
+    assert result is not None
+    assert result["tags"] == []
