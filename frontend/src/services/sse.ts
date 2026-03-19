@@ -6,6 +6,10 @@ import type {
     SessionEndedEvent,
 } from "../types";
 
+/**
+ * A client wrapper for Server-Sent Events (SSE) that provides typed, chainable
+ * event handlers for session log streaming.
+ */
 export interface SseClient {
     onLog: (handler: (event: LogEvent) => void) => SseClient;
     onContainerStarted: (handler: (event: ContainerStartedEvent) => void) => SseClient;
@@ -13,11 +17,20 @@ export interface SseClient {
     onDropped: (handler: (event: DroppedEvent) => void) => SseClient;
     onSessionEnded: (handler: (event: SessionEndedEvent) => void) => SseClient;
     onError: (handler: (event: Event) => void) => SseClient;
+    /** Closes the SSE connection and cleans up listeners. */
     disconnect: () => void;
 }
 
+/**
+ * Connects to the backend log stream for a given session.
+ * Utilizes the browser's native EventSource API, which automatically
+ * handles reconnections if the stream drops unexpectedly.
+ *
+ * @param sessionId - The UUID of the active session
+ * @returns An SseClient instance with chainable event handlers
+ */
 export function connectLogStream(sessionId: string): SseClient {
-    const url = `/api/sessions/${sessionId}/logs`;
+    const url = `/api/sessions/${encodeURIComponent(sessionId)}/logs`;
     const eventSource = new EventSource(url);
 
     // Handlers
@@ -28,55 +41,39 @@ export function connectLogStream(sessionId: string): SseClient {
     let sessionEndedHandler: ((event: SessionEndedEvent) => void) | undefined;
     let errorHandler: ((event: Event) => void) | undefined;
 
+    // Helper to safely parse JSON and dispatch to handler, routing errors to the error handler.
+    const parseAndDispatch = <T>(
+        e: Event,
+        handler: ((event: T) => void) | undefined,
+        eventName: string
+    ) => {
+        if (!handler) return;
+        try {
+            const data = JSON.parse((e as MessageEvent).data);
+            handler(data);
+        } catch (err) {
+            // Route parse failures to the registered error handler if available
+            if (errorHandler) {
+                errorHandler(new ErrorEvent("error", { 
+                    message: `Failed to parse '${eventName}' event`,
+                    error: err 
+                }));
+            } else {
+                console.error(`Failed to parse '${eventName}' event`, err);
+            }
+        }
+    };
+
     // Listeners parsing JSON data payload
-    eventSource.addEventListener("log", (e) => {
-        if (logHandler) {
-            try {
-                logHandler(JSON.parse((e as MessageEvent).data));
-            } catch (err) {
-                console.error("Failed to parse 'log' event", err);
-            }
-        }
-    });
-
-    eventSource.addEventListener("container_started", (e) => {
-        if (containerStartedHandler) {
-            try {
-                containerStartedHandler(JSON.parse((e as MessageEvent).data));
-            } catch (err) {
-                console.error("Failed to parse 'container_started' event", err);
-            }
-        }
-    });
-
-    eventSource.addEventListener("container_exited", (e) => {
-        if (containerExitedHandler) {
-            try {
-                containerExitedHandler(JSON.parse((e as MessageEvent).data));
-            } catch (err) {
-                console.error("Failed to parse 'container_exited' event", err);
-            }
-        }
-    });
-
-    eventSource.addEventListener("dropped", (e) => {
-        if (droppedHandler) {
-            try {
-                droppedHandler(JSON.parse((e as MessageEvent).data));
-            } catch (err) {
-                console.error("Failed to parse 'dropped' event", err);
-            }
-        }
-    });
-
+    eventSource.addEventListener("log", (e) => parseAndDispatch(e, logHandler, "log"));
+    eventSource.addEventListener("container_started", (e) => parseAndDispatch(e, containerStartedHandler, "container_started"));
+    eventSource.addEventListener("container_exited", (e) => parseAndDispatch(e, containerExitedHandler, "container_exited"));
+    eventSource.addEventListener("dropped", (e) => parseAndDispatch(e, droppedHandler, "dropped"));
+    
     eventSource.addEventListener("session_ended", (e) => {
-        if (sessionEndedHandler) {
-            try {
-                sessionEndedHandler(JSON.parse((e as MessageEvent).data));
-            } catch (err) {
-                console.error("Failed to parse 'session_ended' event", err);
-            }
-        }
+        parseAndDispatch(e, sessionEndedHandler, "session_ended");
+        // Streams are explicitly closed by backend, so close client to prevent auto-reconnect loops
+        eventSource.close();
     });
 
     eventSource.addEventListener("error", (e) => {
