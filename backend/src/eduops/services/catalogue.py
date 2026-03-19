@@ -88,6 +88,8 @@ def upsert_scenario(
         raise ValueError(
             f"difficulty must be 'easy', 'medium', or 'hard', got {difficulty!r}"
         )
+    if len(embedding) != 1536:
+        raise ValueError(f"embedding must be exactly 1536 bytes, got {len(embedding)}")
 
     if created_at is None:
         created_at = datetime.now(timezone.utc).isoformat()
@@ -97,10 +99,18 @@ def upsert_scenario(
 
     conn.execute(
         """
-        INSERT OR REPLACE INTO scenarios
+        INSERT INTO scenarios
             (id, title, description, difficulty, tags, source, schema_json, embedding, created_at)
         VALUES
             (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            title = excluded.title,
+            description = excluded.description,
+            difficulty = excluded.difficulty,
+            tags = excluded.tags,
+            source = excluded.source,
+            schema_json = excluded.schema_json,
+            embedding = excluded.embedding
         """,
         (
             scenario.id,
