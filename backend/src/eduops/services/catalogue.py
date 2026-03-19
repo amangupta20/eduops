@@ -5,7 +5,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from pydantic import ValidationError
-from eduops.models.scenario import ScenarioSchema
+from eduops.models.scenario import ScenarioSchema, ScenarioSummary
+from eduops.db import fetchall, fetchone
 
 logger = logging.getLogger(__name__)
 
@@ -125,3 +126,60 @@ def upsert_scenario(
         ),
     )
     logger.debug("Upserted scenario id=%s source=%s", scenario.id, source)
+
+
+def list_scenarios(
+    conn: sqlite3.Connection,
+    difficulty: str | None = None,
+    source: str | None = None,
+) -> list[ScenarioSummary]:
+    """
+    List all scenarios in the catalogue, with optional filters.
+    Returns summaries only (no schema_json).
+    """
+    query = "SELECT id, title, description, difficulty, tags, source, created_at FROM scenarios"
+    params: list[str] = []
+    where_clauses: list[str] = []
+
+    if difficulty:
+        where_clauses.append("difficulty = ?")
+        params.append(difficulty)
+    if source:
+        where_clauses.append("source = ?")
+        params.append(source)
+
+    if where_clauses:
+        query += " WHERE " + " AND ".join(where_clauses)
+
+    query += " ORDER BY created_at DESC"
+
+    rows = fetchall(conn, query, params)
+
+    return [
+        ScenarioSummary(
+            id=row["id"],
+            title=row["title"],
+            description=row["description"],
+            difficulty=row["difficulty"],
+            tags=json.loads(row["tags"]),
+            source=row["source"],
+            created_at=row["created_at"],
+        )
+        for row in rows
+    ]
+
+
+def get_scenario(conn: sqlite3.Connection, scenario_id: str) -> ScenarioSchema | None:
+    """
+    Retrieve a single full scenario by ID.
+    Returns ScenarioSchema or None if not found.
+    """
+    row = fetchone(conn, "SELECT schema_json FROM scenarios WHERE id = ?", (scenario_id,))
+    if not row:
+        return None
+
+    try:
+        return ScenarioSchema.model_validate_json(row["schema_json"])
+    except ValidationError as e:
+        logger.error(f"Schema validation failed for scenario {scenario_id}: {e}")
+        return None

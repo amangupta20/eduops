@@ -151,3 +151,19 @@ def validate_approved_images(schema: ScenarioSchema, approved_list: list[str] | 
                 raise ValueError(f"Image '{action.image}' is not in the approved list and was not built locally.")
                 
     return True
+
+# --- API MODELS (Task 25) ---
+
+class ScenarioSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    id: str
+    title: str
+    description: str
+    difficulty: Literal["easy", "medium", "hard"]
+    tags: list[str]
+    source: Literal["bundled", "generated"]
+    created_at: str
+
+class ScenarioDetail(ScenarioSummary):
+    hints_count: int
+    success_checks_count: int
