@@ -2,6 +2,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, ConfigDict
+from starlette.concurrency import run_in_threadpool
 
 from eduops.services.catalogue import list_scenarios
 
@@ -35,7 +36,11 @@ async def get_scenarios(
     source: Source | None = Query(default=None),
 ) -> ScenarioListResponse:
     """Return scenario summaries, optionally filtered by difficulty and source."""
-    scenarios = list_scenarios(difficulty=difficulty, source=source)
+    scenarios = await run_in_threadpool(
+        list_scenarios,
+        difficulty=difficulty,
+        source=source,
+    )
     return ScenarioListResponse(
         scenarios=[ScenarioSummary.model_validate(scenario) for scenario in scenarios]
     )
