@@ -59,7 +59,7 @@ Tasks below reinforce this by: one function per task where possible, services sp
 - [x] T008 Implement `load_config()` and `save_config()` TOML functions in `backend/src/eduops/config.py` — read/write `~/.eduops/config.toml`, handle missing file gracefully, derive `base_url` from provider (openai → default, gemini → googleapis, openrouter → openrouter.ai, custom → user-provided)
 - [x] T018 Implement FastAPI app factory in `backend/src/eduops/app.py` — `create_app()` mounting API routers under `/api` prefix, serve frontend static files from `static/` directory with `StaticFiles(html=True)`, configure CORS for dev
 - [x] T009 Implement CLI argument parsing and uvicorn launch in `backend/src/eduops/cli.py` — parse `eduops start` command with optional `--port` flag, launch `uvicorn` pointing to `eduops.app:app` on port 7337 (depends on T018)
-- [ ] T010 Implement interactive first-run LLM setup prompt in `backend/src/eduops/cli.py` — detect missing config, prompt for provider → API key → model, call `save_config()` to write `~/.eduops/config.toml`
+- [x] T010 Implement interactive first-run LLM setup prompt in `backend/src/eduops/cli.py` — detect missing config, prompt for provider → API key → model, call `save_config()` to write `~/.eduops/config.toml`
 - [x] T011 [P] Implement Docker availability check utility in `backend/src/eduops/cli.py` — `check_docker()` calling `docker.from_env().ping()`, return clear error message if Docker daemon unreachable; call before server launch
 
 ### Database
@@ -69,15 +69,15 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ### Domain Models
 
-- [ ] T014 [P] Define SetupAction discriminated union in `backend/src/eduops/models/scenario.py` — PullImage, BuildImage, CreateNetwork, CreateVolume, RunContainer Pydantic models with `action` literal discriminator field
-- [ ] T015 [P] Define SuccessCheck discriminated union in `backend/src/eduops/models/scenario.py` — ContainerRunning, PortResponds, DockerExec (command as `list[str]`), FileInWorkspace Pydantic models with `type` literal discriminator field
-- [ ] T016 Define ScenarioSchema and WorkspaceFile models in `backend/src/eduops/models/scenario.py` — ScenarioSchema aggregating setup_actions, expected_containers (`list[str]`, default `[]`), success_checks, hints, review_context, workspace_files; `validate_approved_images(schema, approved_list)` function checking all image references against approved list
-- [ ] T017 [P] Define Session, CheckResult, and Review Pydantic models in `backend/src/eduops/models/session.py` — Session with status enum (active/completed/abandoned), CheckResult with check_type/check_name/passed/message, Review with what_went_well/what_could_improve/next_steps (each a list of strings)
+- [x] T014 [P] Define SetupAction discriminated union in `backend/src/eduops/models/scenario.py` — PullImage, BuildImage, CreateNetwork, CreateVolume, RunContainer Pydantic models with `action` literal discriminator field
+- [x] T015 [P] Define SuccessCheck discriminated union in `backend/src/eduops/models/scenario.py` — ContainerRunning, PortResponds, DockerExec (command as `list[str]`), FileInWorkspace Pydantic models with `type` literal discriminator field
+- [x] T016 Define ScenarioSchema and WorkspaceFile models in `backend/src/eduops/models/scenario.py` — ScenarioSchema aggregating setup_actions, expected_containers (`list[str]`, default `[]`), success_checks, hints, review_context, workspace_files; `validate_approved_images(schema, approved_list)` function checking all image references against approved list
+- [x] T017 [P] Define Session, CheckResult, and Review Pydantic models in `backend/src/eduops/models/session.py` — Session with status enum (active/completed/abandoned), CheckResult with check_type/check_name/passed/message, Review with what_went_well/what_could_improve/next_steps (each a list of strings)
 
 ### Application Shell
 
-- [ ] T019 Implement lifespan context manager in `backend/src/eduops/app.py` — async context manager calling `init_db()` on startup and yielding; shutdown hook placeholder; wire into `create_app(lifespan=...)`
-- [ ] T020 Implement `GET /api/health` endpoint in `backend/src/eduops/api/health.py` — return Docker status, LLM configured flag, active session ID or null, scenario count per contracts/api.md
+- [x] T019 Implement lifespan context manager in `backend/src/eduops/app.py` — async context manager calling `init_db()` on startup and yielding; shutdown hook placeholder; wire into `create_app(lifespan=...)`
+- [x] T020 Implement `GET /api/health` endpoint in `backend/src/eduops/api/health.py` — return Docker status, LLM configured flag, active session ID or null, scenario count per contracts/api.md
 - [x] T021 [P] Create base frontend HTTP client with health function in `frontend/src/services/api.ts` — typed fetch wrapper with base URL `/api`, error handling, `getHealth()` function
 - [ ] T022 [P] Implement frontend SSE client in `frontend/src/services/sse.ts` — `connectLogStream(sessionId)` returning EventSource wrapper with typed handlers for `log`, `container_started`, `container_exited`, `dropped`, `session_ended` events, auto-reconnect
 
@@ -93,7 +93,7 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ### Catalogue Service
 
-- [ ] T023 [P] [US1] Implement `load_bundled_scenarios()` in `backend/src/eduops/services/catalogue.py` — read all JSON files from `backend/src/eduops/scenarios/` directory, parse each into ScenarioSchema, return list
+- [x] T023 [P] [US1] Implement `load_bundled_scenarios()` in `backend/src/eduops/services/catalogue.py` — read all JSON files from `backend/src/eduops/scenarios/` directory, parse each into ScenarioSchema, return list
 - [ ] T024 [US1] Implement `upsert_scenario()` in `backend/src/eduops/services/catalogue.py` — insert-or-update a scenario row in the DB by ID, store serialised schema_json and embedding BLOB
 - [ ] T025 [US1] Implement `list_scenarios()` and `get_scenario()` in `backend/src/eduops/services/catalogue.py` — list with optional difficulty/source filters, get by ID returning full scenario or None
 
