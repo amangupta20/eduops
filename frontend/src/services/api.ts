@@ -1,9 +1,17 @@
-import type { HealthStatus } from "../types";
+import type { HealthStatus, Scenario, ScenarioSearchResult } from "../types";
 
 const API_BASE_URL = "/api";
 
 interface ErrorResponse {
     detail?: unknown;
+}
+
+interface ScenarioListResponse {
+    scenarios: Scenario[];
+}
+
+interface ScenarioSearchResponse {
+    results: ScenarioSearchResult[];
 }
 
 export class ApiError extends Error {
@@ -92,4 +100,17 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
 export async function getHealth(): Promise<HealthStatus> {
     return request<HealthStatus>("/health", { method: "GET" });
+}
+
+export async function listScenarios(): Promise<Scenario[]> {
+    const payload = await request<ScenarioListResponse>("/scenarios", { method: "GET" });
+    return payload.scenarios;
+}
+
+export async function searchScenarios(query: string): Promise<ScenarioSearchResult[]> {
+    const payload = await request<ScenarioSearchResponse>("/scenarios/search", {
+        method: "POST",
+        body: { query },
+    });
+    return payload.results;
 }

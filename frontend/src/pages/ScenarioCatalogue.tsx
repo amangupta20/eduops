@@ -1,6 +1,8 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Clock3, ShieldCheck, Sparkles } from "lucide-react";
 
+import SearchBar from "@/components/SearchBar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,48 +13,80 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { notifySuccess, notifyWarning } from "@/lib/notify";
+import { listScenarios } from "@/services/api";
+import type { Scenario } from "@/types";
 
-type Scenario = {
-  id: string;
-  title: string;
-  level: "Beginner" | "Intermediate" | "Advanced";
-  duration: string;
-  description: string;
-  focus: string;
+const difficultyLabel: Record<Scenario["difficulty"], "Beginner" | "Intermediate" | "Advanced"> = {
+  easy: "Beginner",
+  medium: "Intermediate",
+  hard: "Advanced",
 };
 
-const scenarios: Scenario[] = [
+const fallbackScenarios: Scenario[] = [
   {
     id: "incident-101",
     title: "Incident Triage Fundamentals",
-    level: "Beginner",
-    duration: "20 min",
-    focus: "Alert Triage",
     description:
       "Practice identifying high-signal alerts, assigning severity, and sequencing first-response actions.",
+    difficulty: "easy",
+    tags: ["alert triage", "severity", "first response"],
+    source: "bundled",
+    created_at: "2026-01-01T00:00:00Z",
   },
   {
     id: "oncall-incident-bridge",
     title: "On-Call Bridge Coordination",
-    level: "Intermediate",
-    duration: "35 min",
-    focus: "Bridge Operations",
     description:
       "Run a coordinated incident bridge, route ownership, and keep communication loops tight under pressure.",
+    difficulty: "medium",
+    tags: ["coordination", "communication", "incident bridge"],
+    source: "bundled",
+    created_at: "2026-01-01T00:00:00Z",
   },
   {
     id: "multi-region-outage",
     title: "Multi-Region Outage Simulation",
-    level: "Advanced",
-    duration: "45 min",
-    focus: "Recovery Strategy",
     description:
       "Handle a cascading outage with partial observability and prioritize restoration decisions with trade-offs.",
+    difficulty: "hard",
+    tags: ["outage", "recovery", "multi-region"],
+    source: "bundled",
+    created_at: "2026-01-01T00:00:00Z",
   },
 ];
 
 export default function ScenarioCatalogue() {
   const navigate = useNavigate();
+  const [catalogue, setCatalogue] = useState<Scenario[]>([]);
+  const [visibleScenarios, setVisibleScenarios] = useState<Scenario[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadCatalogue = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+
+    try {
+      const scenarios = await listScenarios();
+      setCatalogue(scenarios);
+      setVisibleScenarios(scenarios);
+      notifySuccess("Scenarios loaded", `Found ${scenarios.length} scenario${scenarios.length === 1 ? "" : "s"}.`);
+    } catch {
+      setLoadError("Backend unavailable. Showing local demo scenarios.");
+      setCatalogue(fallbackScenarios);
+      setVisibleScenarios(fallbackScenarios);
+      notifyWarning("Backend unavailable", "Showing local demo scenarios until API is reachable.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadCatalogue();
+  }, [loadCatalogue]);
+
+  const totalCount = useMemo(() => catalogue.length, [catalogue.length]);
 
   return (
     <main className="min-h-screen bg-background">
@@ -66,7 +100,7 @@ export default function ScenarioCatalogue() {
               EduOps Simulations
             </Badge>
             <Badge className="rounded-md border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-emerald-100">
-              3 curated scenarios
+              {totalCount} curated scenarios
             </Badge>
           </div>
           <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-slate-50 sm:text-5xl">
@@ -86,10 +120,37 @@ export default function ScenarioCatalogue() {
               Time-boxed sessions
             </span>
           </div>
+          <div className="mt-6">
+            <SearchBar catalogue={catalogue} onResultsChange={setVisibleScenarios} />
+          </div>
         </header>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {scenarios.map((scenario) => (
+          {isLoading && (
+            <Card className="md:col-span-2 lg:col-span-3 border-blue-500/25 bg-slate-900/60">
+              <CardContent className="p-6 text-sm text-slate-300">Loading scenarios...</CardContent>
+            </Card>
+          )}
+
+          {!isLoading &&
+            loadError && (
+              <Card className="md:col-span-2 lg:col-span-3 border-amber-500/30 bg-amber-500/10">
+                <CardContent className="flex items-center justify-between gap-3 p-4 text-sm text-amber-100">
+                  <span>{loadError}</span>
+                  <Button
+                    variant="outline"
+                    className="border-amber-500/40 bg-amber-500/5 text-amber-100 hover:bg-amber-500/15"
+                    onClick={() => void loadCatalogue()}
+                  >
+                    Retry API
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+          {!isLoading &&
+            !loadError &&
+            visibleScenarios.map((scenario) => (
             <Card
               key={scenario.id}
               className="group flex h-full flex-col justify-between border-blue-500/25 bg-gradient-to-br from-slate-800/50 via-slate-900/50 to-black/60 shadow-xl shadow-blue-500/5 transition-all duration-300 hover:-translate-y-1 hover:border-blue-500/60 hover:shadow-2xl hover:shadow-blue-500/30"
@@ -97,11 +158,11 @@ export default function ScenarioCatalogue() {
               <CardHeader className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <Badge className="border-blue-500/35 bg-blue-500/15 text-blue-100">
-                    {scenario.level}
+                    {difficultyLabel[scenario.difficulty]}
                   </Badge>
                   <span className="inline-flex items-center gap-1 text-xs text-slate-300">
                     <Clock3 className="size-3.5 text-blue-300" />
-                    {scenario.duration}
+                    {scenario.tags.slice(0, 2).join(" • ") || "Guided session"}
                   </span>
                 </div>
                 <CardTitle className="text-xl text-slate-50">{scenario.title}</CardTitle>
@@ -111,7 +172,10 @@ export default function ScenarioCatalogue() {
               </CardHeader>
               <CardContent>
                 <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100/90">
-                  Primary focus: <span className="font-semibold text-emerald-100">{scenario.focus}</span>
+                  Primary focus:{" "}
+                  <span className="font-semibold text-emerald-100">
+                    {scenario.tags[0] ?? "Scenario practice"}
+                  </span>
                 </div>
               </CardContent>
               <CardFooter>
