@@ -79,7 +79,7 @@ Tasks below reinforce this by: one function per task where possible, services sp
 - [x] T019 Implement lifespan context manager in `backend/src/eduops/app.py` — async context manager calling `init_db()` on startup and yielding; shutdown hook placeholder; wire into `create_app(lifespan=...)`
 - [x] T020 Implement `GET /api/health` endpoint in `backend/src/eduops/api/health.py` — return Docker status, LLM configured flag, active session ID or null, scenario count per contracts/api.md
 - [x] T021 [P] Create base frontend HTTP client with health function in `frontend/src/services/api.ts` — typed fetch wrapper with base URL `/api`, error handling, `getHealth()` function
-- [ ] T022 [P] Implement frontend SSE client in `frontend/src/services/sse.ts` — `connectLogStream(sessionId)` returning EventSource wrapper with typed handlers for `log`, `container_started`, `container_exited`, `dropped`, `session_ended` events, auto-reconnect
+- [x] T022 [P] Implement frontend SSE client in `frontend/src/services/sse.ts` — `connectLogStream(sessionId)` returning EventSource wrapper with typed handlers for `log`, `container_started`, `container_exited`, `dropped`, `session_ended` events, auto-reconnect
 
 **Checkpoint**: Foundation ready — user story implementation can now begin
 
