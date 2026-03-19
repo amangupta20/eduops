@@ -19,3 +19,4 @@ Thumbs.db
 *.swp
 coverage/
 .github/instructions/copilot-instructions.md
+GEMINI.md
