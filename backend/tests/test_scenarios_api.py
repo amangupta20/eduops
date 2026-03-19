@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
 from typing import Any
+from pathlib import Path
 
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient
+from httpx import ASGITransport
 
 from eduops.api import scenarios as scenarios_api
+from eduops.app import create_app
 
 
 def _scenario_summary(scenario_id: str, difficulty: str, source: str) -> dict[str, Any]:
@@ -24,10 +29,11 @@ def _scenario_summary(scenario_id: str, difficulty: str, source: str) -> dict[st
 
 @pytest.mark.asyncio
 async def test_get_scenarios_returns_contract_shape(
-    async_client: AsyncClient,
+    scenarios_api_client: tuple[AsyncClient, Path],
     monkeypatch: Any,
 ) -> None:
     """Endpoint should return scenario summaries under the 'scenarios' key."""
+    async_client, expected_db_path = scenarios_api_client
 
     def fake_list_scenarios(
         difficulty: str | None = None,
@@ -36,7 +42,7 @@ async def test_get_scenarios_returns_contract_shape(
     ) -> list[dict[str, Any]]:
         assert difficulty is None
         assert source is None
-        assert db_path is None
+        assert db_path == expected_db_path
         return [_scenario_summary("s1", "easy", "bundled")]
 
     monkeypatch.setattr(scenarios_api, "list_scenarios", fake_list_scenarios)
@@ -53,10 +59,11 @@ async def test_get_scenarios_returns_contract_shape(
 
 @pytest.mark.asyncio
 async def test_get_scenarios_forwards_optional_filters(
-    async_client: AsyncClient,
+    scenarios_api_client: tuple[AsyncClient, Path],
     monkeypatch: Any,
 ) -> None:
     """difficulty and source query params should be forwarded to service layer."""
+    async_client, expected_db_path = scenarios_api_client
     captured: dict[str, Any] = {}
 
     def fake_list_scenarios(
@@ -74,7 +81,22 @@ async def test_get_scenarios_forwards_optional_filters(
     response = await async_client.get("/api/scenarios?difficulty=hard&source=generated")
 
     assert response.status_code == 200
-    assert captured == {"difficulty": "hard", "source": "generated", "db_path": None}
+    assert captured == {
+        "difficulty": "hard",
+        "source": "generated",
+        "db_path": expected_db_path,
+    }
     payload = response.json()
     assert payload["scenarios"][0]["difficulty"] == "hard"
     assert payload["scenarios"][0]["source"] == "generated"
+
+
+@pytest_asyncio.fixture()
+async def scenarios_api_client(tmp_path: Path) -> AsyncGenerator[tuple[AsyncClient, Path], None]:
+    """Create a per-test app/client using an isolated temporary SQLite file."""
+    db_path = tmp_path / "scenarios_api_test.db"
+    app = create_app(db_path=db_path)
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client, db_path
