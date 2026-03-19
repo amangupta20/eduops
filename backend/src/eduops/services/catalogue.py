@@ -135,8 +135,17 @@ def _parse_tags(raw_tags: str) -> list[str]:
         value = json.loads(raw_tags)
         if isinstance(value, list) and all(isinstance(tag, str) for tag in value):
             return value
-    except json.JSONDecodeError:
-        logger.warning("Failed to parse scenario tags JSON; returning empty tag list")
+        logger.warning(
+            "Scenario tags JSON has unexpected structure; expected list[str], got %r. "
+            "Returning empty tag list.",
+            value,
+        )
+    except json.JSONDecodeError as exc:
+        logger.warning(
+            "Failed to parse scenario tags JSON; returning empty tag list. Error: %s",
+            exc,
+            exc_info=True,
+        )
     return []
 
 

@@ -162,3 +162,61 @@ def test_list_and_get_are_safe_with_sql_like_input_values(db_path: Path) -> None
     assert list_scenarios(source=injected_filter, db_path=db_path) == []
     assert get_scenario(injected_id, db_path=db_path) is None
     assert get_scenario("safe-id", db_path=db_path) is not None
+
+
+def test_list_and_get_return_empty_tags_for_invalid_payloads(db_path: Path) -> None:
+    """Invalid tags JSON should not raise and should decode to an empty list."""
+    init_db(db_path)
+
+    with get_db(db_path) as conn:
+        execute(
+            conn,
+            (
+                "INSERT INTO scenarios "
+                "(id, title, description, difficulty, tags, source, schema_json, embedding, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            ),
+            (
+                "invalid-json-tags",
+                "Invalid JSON Tags",
+                "Bad tags payload",
+                "easy",
+                "not-json",
+                "bundled",
+                "{}",
+                b"\x00" * 1536,
+                "2026-03-19T15:00:00Z",
+            ),
+            commit=True,
+        )
+        execute(
+            conn,
+            (
+                "INSERT INTO scenarios "
+                "(id, title, description, difficulty, tags, source, schema_json, embedding, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            ),
+            (
+                "json-non-list-tags",
+                "JSON Non-List Tags",
+                "Tags is not a list",
+                "medium",
+                json.dumps({"tag": "docker"}),
+                "generated",
+                "{}",
+                b"\x00" * 1536,
+                "2026-03-19T16:00:00Z",
+            ),
+            commit=True,
+        )
+
+    listed = list_scenarios(db_path=db_path)
+    listed_by_id = {item["id"]: item for item in listed}
+
+    assert listed_by_id["invalid-json-tags"]["tags"] == []
+    assert listed_by_id["json-non-list-tags"]["tags"] == []
+
+    assert get_scenario("invalid-json-tags", db_path=db_path) is not None
+    assert get_scenario("invalid-json-tags", db_path=db_path)["tags"] == []
+    assert get_scenario("json-non-list-tags", db_path=db_path) is not None
+    assert get_scenario("json-non-list-tags", db_path=db_path)["tags"] == []
