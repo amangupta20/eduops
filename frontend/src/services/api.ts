@@ -1,4 +1,13 @@
-import type { HealthStatus, Scenario, ScenarioSearchResult, Session, SessionStatus } from "../types";
+import type {
+    Difficulty,
+    HealthStatus,
+    Scenario,
+    ScenarioDetail,
+    ScenarioSearchResult,
+    Session,
+    SessionStatus,
+    Source,
+} from "../types";
 
 const API_BASE_URL = "/api";
 
@@ -112,6 +121,31 @@ export async function getHealth(): Promise<HealthStatus> {
 export async function listScenarios(): Promise<Scenario[]> {
     const payload = await request<ScenarioListResponse>("/scenarios", { method: "GET" });
     return payload.scenarios;
+}
+
+export async function getScenarios(
+    difficulty?: Difficulty,
+    source?: Source,
+): Promise<Scenario[]> {
+    const params = new URLSearchParams();
+    if (difficulty) params.set("difficulty", difficulty);
+    if (source) params.set("source", source);
+
+    const query = params.toString();
+    const path = query ? `/scenarios?${query}` : "/scenarios";
+    const payload = await request<ScenarioListResponse>(path, { method: "GET" });
+    return payload.scenarios;
+}
+
+export async function getScenario(id: string): Promise<ScenarioDetail> {
+    return request<ScenarioDetail>(`/scenarios/${id}`, { method: "GET" });
+}
+
+export async function createSession(scenarioId: string): Promise<Session> {
+    return request<Session>("/sessions", {
+        method: "POST",
+        body: { scenario_id: scenarioId },
+    });
 }
 
 export async function searchScenarios(query: string): Promise<ScenarioSearchResult[]> {
