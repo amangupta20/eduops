@@ -95,7 +95,7 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 - [x] T023 [P] [US1] Implement `load_bundled_scenarios()` in `backend/src/eduops/services/catalogue.py` — read all JSON files from `backend/src/eduops/scenarios/` directory, parse each into ScenarioSchema, return list
 - [x] T024 [US1] Implement `upsert_scenario()` in `backend/src/eduops/services/catalogue.py` — insert-or-update a scenario row in the DB by ID, store serialised schema_json and embedding BLOB
-- [ ] T025 [US1] Implement `list_scenarios()` and `get_scenario()` in `backend/src/eduops/services/catalogue.py` — list with optional difficulty/source filters, get by ID returning full scenario or None
+- [x] T025 [US1] Implement `list_scenarios()` and `get_scenario()` in `backend/src/eduops/services/catalogue.py` — list with optional difficulty/source filters, get by ID returning full scenario or None
 
 ### Scenario API
 
@@ -104,8 +104,8 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 ### Docker Action Executor
 
-- [ ] T028 [P] [US1] Implement image and resource action handlers in `backend/src/eduops/services/docker_exec.py` — `handle_pull_image()` calling `client.images.pull()`, `handle_build_image()` calling `client.images.build()`, `handle_create_network()` calling `client.networks.create()`, `handle_create_volume()` calling `client.volumes.create()`; all label resources with `eduops.session=<session_id>`
-- [ ] T029 [US1] Implement `handle_run_container()` in `backend/src/eduops/services/docker_exec.py` — translate RunContainer action to `client.containers.run()` with port mapping, volume binds, network, env vars, command; label with `eduops.session=<session_id>`; detach mode
+- [x] T028 [P] [US1] Implement image and resource action handlers in `backend/src/eduops/services/docker_exec.py` — `handle_pull_image()` calling `client.images.pull()`, `handle_build_image()` calling `client.images.build()`, `handle_create_network()` calling `client.networks.create()`, `handle_create_volume()` calling `client.volumes.create()`; all label resources with `eduops.session=<session_id>`
+- [x] T029 [US1] Implement `handle_run_container()` in `backend/src/eduops/services/docker_exec.py` — translate RunContainer action to `client.containers.run()` with port mapping, volume binds, network, env vars, command; label with `eduops.session=<session_id>`; detach mode
 - [ ] T030 [US1] Implement `execute_setup_actions()` orchestrator in `backend/src/eduops/services/docker_exec.py` — iterate typed actions, resolve `{{workspace}}` template variable in all string fields, dispatch to correct handler, track created resources, rollback all on failure
 
 ### Session Service
