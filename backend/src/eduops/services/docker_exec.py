@@ -1,13 +1,15 @@
 import io
 import logging
+from pathlib import Path
 import docker
-from docker.errors import APIError, BuildError, ImageNotFound
+from docker.errors import APIError, BuildError, ImageNotFound, ContainerError
+from docker.models.containers import Container
 from docker.models.images import Image
 from docker.models.networks import Network
 from docker.models.volumes import Volume
 
 # Import the strict models you built in Phase 2
-from eduops.models.scenario import PullImage, BuildImage, CreateNetwork, CreateVolume
+from eduops.models.scenario import PullImage, BuildImage, CreateNetwork, CreateVolume, RunContainer
 
 logger = logging.getLogger(__name__)
 
@@ -95,3 +97,56 @@ def handle_create_volume(client: docker.DockerClient, action: CreateVolume, sess
     except APIError as e:
         logger.error(f"[{session_id}] Failed to create volume {action.name}: {e}")
         raise DockerExecutionError(f"Failed to create volume {action.name}") from e
+
+def handle_run_container(client: docker.DockerClient, action: RunContainer, session_id: str) -> Container:
+    """Runs a Docker container with mapped properties in detached mode."""
+    logger.info(f"[{session_id}] Running container from image: {action.image}")
+    
+    # 1. Strict validation: Name is mandatory for deterministic cleanup
+    if not action.name:
+        raise ValueError(f"[{session_id}] Container name is required but was empty or missing.")
+
+    # 2. Mandatory constraints
+    kwargs = {
+        "image": action.image,
+        "name": action.name,
+        "detach": True, 
+        "labels": {"eduops.session": session_id},
+    }
+    
+    # 3. Dynamic {{workspace}} resolution helper
+    workspace_dir = str(Path.home() / ".eduops" / "workspaces" / session_id)
+    
+    def _resolve_workspace(value):
+        if isinstance(value, str):
+            return value.replace("{{workspace}}", workspace_dir)
+        if isinstance(value, list):
+            return [_resolve_workspace(item) for item in value]
+        if isinstance(value, dict):
+            return {_resolve_workspace(k): _resolve_workspace(v) for k, v in value.items()}
+        return value
+
+    # 4. Safely attach optional configurations
+    if action.ports:
+        kwargs["ports"] = action.ports
+        
+    if action.volumes:
+        kwargs["volumes"] = _resolve_workspace(action.volumes)
+        
+    if action.network:
+        kwargs["network"] = action.network
+        
+    # Fixed typo: reading 'action.env' instead of 'action.environment'
+    if action.env:
+        kwargs["environment"] = action.env
+        
+    if action.command:
+        kwargs["command"] = _resolve_workspace(action.command)
+
+    try:
+        container = client.containers.run(**kwargs)
+        logger.debug(f"[{session_id}] Successfully started container {action.name} (ID: {container.short_id})")
+        return container
+    except (ContainerError, ImageNotFound, APIError) as e:
+        logger.error(f"[{session_id}] Failed to run container {action.name}: {e}")
+        raise DockerExecutionError(f"Failed to run container {action.name}") from e
