@@ -1,4 +1,4 @@
-import type { HealthStatus, Scenario, ScenarioSearchResult } from "../types";
+import type { HealthStatus, Scenario, ScenarioSearchResult, Session, SessionStatus } from "../types";
 
 const API_BASE_URL = "/api";
 
@@ -12,6 +12,13 @@ interface ScenarioListResponse {
 
 interface ScenarioSearchResponse {
     results: ScenarioSearchResult[];
+}
+
+interface DeleteSessionResponse {
+    id: string;
+    status: SessionStatus;
+    cleanup_performed: boolean;
+    workspace_kept: boolean;
 }
 
 export class ApiError extends Error {
@@ -113,4 +120,18 @@ export async function searchScenarios(query: string): Promise<ScenarioSearchResu
         body: { query },
     });
     return payload.results;
+}
+
+export async function getActiveSession(): Promise<Session> {
+    return request<Session>("/sessions/active", { method: "GET" });
+}
+
+export async function deleteSession(
+    sessionId: string,
+    options: { cleanup_workspace: boolean },
+): Promise<DeleteSessionResponse> {
+    return request<DeleteSessionResponse>(`/sessions/${sessionId}`, {
+        method: "DELETE",
+        body: options,
+    });
 }

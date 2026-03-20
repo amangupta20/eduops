@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import { CheckCircle2, Circle, TerminalSquare, MessageSquareText } from "lucide-react";
 
+import ActiveSession from "@/components/ActiveSession";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,12 +56,7 @@ export default function ScenarioWorkspace() {
               <Button className="bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-600/40 hover:from-blue-500 hover:to-blue-600">
                 Submit
               </Button>
-              <Button
-                variant="outline"
-                className="border-red-500/40 bg-red-500/5 text-red-100 hover:bg-red-500/10 hover:text-red-50"
-              >
-                End Session
-              </Button>
+              <ActiveSession sessionId={sessionId} />
             </div>
           </CardContent>
         </Card>
