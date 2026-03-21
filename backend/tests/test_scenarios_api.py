@@ -24,7 +24,7 @@ def _scenario_summary(scenario_id: str, difficulty: str, source: str) -> dict[st
         "difficulty": difficulty,
         "tags": ["docker", "practice"],
         "source": source,
-        "created_at": "2026-03-19T12:00:00Z",
+        "created_at": "2026-03-19T12:00:00+00:00",
     }
 
 
@@ -55,6 +55,7 @@ async def test_get_scenarios_returns_contract_shape(
     assert "scenarios" in payload
     assert len(payload["scenarios"]) == 1
     assert payload["scenarios"][0]["id"] == "s1"
+    assert payload["scenarios"][0]["created_at"] == "2026-03-19T12:00:00Z"
     assert "schema_json" not in payload["scenarios"][0]
 
 
@@ -122,7 +123,7 @@ async def test_get_scenario_detail_returns_contract_shape(
             "source": "bundled",
             "schema_json": json.dumps(fake_schema),
             "embedding": b"x" * 1536,
-            "created_at": "2026-03-19T12:00:00Z",
+            "created_at": "2026-03-19T12:00:00+00:00",
         }
 
     monkeypatch.setattr(scenarios_api, "get_scenario", fake_get_scenario)
@@ -134,7 +135,39 @@ async def test_get_scenario_detail_returns_contract_shape(
     assert payload["id"] == "s1"
     assert payload["hints_count"] == 2
     assert payload["success_checks_count"] == 1
+    assert payload["created_at"] == "2026-03-19T12:00:00Z"
     assert "schema_json" not in payload
+
+
+@pytest.mark.asyncio
+async def test_get_scenario_detail_returns_500_for_corrupted_schema(
+    scenarios_api_client: tuple[AsyncClient, Path],
+    monkeypatch: Any,
+) -> None:
+    """Malformed schema_json should return a deterministic 500 response."""
+    async_client, expected_db_path = scenarios_api_client
+
+    def fake_get_scenario(scenario_id: str, db_path: Any = None) -> dict[str, Any] | None:
+        assert scenario_id == "s1_corrupt"
+        assert db_path == expected_db_path
+        return {
+            "id": "s1_corrupt",
+            "title": "Corrupted Scenario",
+            "description": "Practice Docker basics",
+            "difficulty": "easy",
+            "tags": ["docker", "practice"],
+            "source": "bundled",
+            "schema_json": "{not valid json",
+            "embedding": b"x" * 1536,
+            "created_at": "2026-03-19T12:00:00+00:00",
+        }
+
+    monkeypatch.setattr(scenarios_api, "get_scenario", fake_get_scenario)
+
+    response = await async_client.get("/api/scenarios/s1_corrupt")
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Invalid scenario schema"}
 
 
 @pytest.mark.asyncio

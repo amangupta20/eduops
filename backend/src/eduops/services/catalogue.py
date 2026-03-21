@@ -12,6 +12,19 @@ from eduops.models.scenario import ScenarioSchema
 logger = logging.getLogger(__name__)
 
 
+def _normalize_utc_timestamp(value: str) -> str:
+    """Normalize aware UTC timestamps to RFC3339 Z form."""
+    if value.endswith("Z"):
+        return value
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return value
+    if parsed.tzinfo is None:
+        return value
+    return parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
 def get_scenarios_dir() -> Path:
     """Resolve the absolute path to the bundled scenarios directory."""
     return Path(__file__).resolve().parent.parent / "scenarios"
@@ -94,7 +107,9 @@ def upsert_scenario(
         raise ValueError(f"embedding must be exactly 1536 bytes, got {len(embedding)}")
 
     if created_at is None:
-        created_at = datetime.now(timezone.utc).isoformat()
+        created_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    else:
+        created_at = _normalize_utc_timestamp(created_at)
 
     schema_json: str = scenario.model_dump_json()
     tags_json: str = json.dumps(tags)

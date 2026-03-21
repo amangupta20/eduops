@@ -1,7 +1,8 @@
+from datetime import datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, ValidationError
 from starlette.concurrency import run_in_threadpool
 
 from eduops.models.scenario import ScenarioSchema
@@ -11,6 +12,19 @@ router = APIRouter()
 
 Difficulty = Literal["easy", "medium", "hard"]
 Source = Literal["bundled", "generated"]
+
+
+def _to_rfc3339_utc_z(value: str) -> str:
+    """Normalize aware UTC timestamps to RFC3339 Z form."""
+    if value.endswith("Z"):
+        return value
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return value
+    if parsed.tzinfo is None:
+        return value
+    return parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 class ScenarioSummary(BaseModel):
@@ -59,8 +73,16 @@ async def get_scenarios(
         source=source,
         db_path=db_path,
     )
+
+    normalized_scenarios = [
+        {**scenario, "created_at": _to_rfc3339_utc_z(scenario["created_at"])}
+        for scenario in scenarios
+    ]
+
     return ScenarioListResponse(
-        scenarios=[ScenarioSummary.model_validate(scenario) for scenario in scenarios]
+        scenarios=[
+            ScenarioSummary.model_validate(scenario) for scenario in normalized_scenarios
+        ]
     )
 
 
@@ -74,8 +96,8 @@ async def get_scenario_detail(request: Request, scenario_id: str) -> ScenarioDet
 
     try:
         parsed_schema = ScenarioSchema.model_validate_json(scenario["schema_json"])
-    except Exception as exc:  # pragma: no cover - defensive path for corrupted rows
-        raise HTTPException(status_code=500, detail="Stored scenario schema is invalid") from exc
+    except (ValidationError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=500, detail="Invalid scenario schema") from exc
 
     return ScenarioDetail(
         id=scenario["id"],
@@ -86,5 +108,5 @@ async def get_scenario_detail(request: Request, scenario_id: str) -> ScenarioDet
         source=scenario["source"],
         hints_count=len(parsed_schema.hints),
         success_checks_count=len(parsed_schema.success_checks),
-        created_at=scenario["created_at"],
+        created_at=_to_rfc3339_utc_z(scenario["created_at"]),
     )
