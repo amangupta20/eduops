@@ -100,7 +100,7 @@ Tasks below reinforce this by: one function per task where possible, services sp
 ### Scenario API
 
 - [x] T026 [US1] Implement `GET /api/scenarios` endpoint in `backend/src/eduops/api/scenarios.py` — list scenarios with optional `difficulty` and `source` query params, return scenario summaries (excluding schema_json)
-- [ ] T027 [US1] Implement `GET /api/scenarios/{scenario_id}` endpoint in `backend/src/eduops/api/scenarios.py` — return scenario detail (excluding schema_json per contract), 404 for unknown IDs
+- [x] T027 [US1] Implement `GET /api/scenarios/{scenario_id}` endpoint in `backend/src/eduops/api/scenarios.py` — return scenario detail (excluding schema_json per contract), 404 for unknown IDs
 
 ### Docker Action Executor
 
