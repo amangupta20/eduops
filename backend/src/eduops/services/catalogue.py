@@ -3,8 +3,10 @@ import logging
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from pydantic import ValidationError
+from eduops.db import fetchall, fetchone, get_db
 from eduops.models.scenario import ScenarioSchema
 
 logger = logging.getLogger(__name__)
@@ -125,3 +127,93 @@ def upsert_scenario(
         ),
     )
     logger.debug("Upserted scenario id=%s source=%s", scenario.id, source)
+
+
+def _parse_tags(raw_tags: str) -> list[str]:
+    """Convert persisted JSON tags into a list of strings."""
+    try:
+        value = json.loads(raw_tags)
+        if isinstance(value, list) and all(isinstance(tag, str) for tag in value):
+            return value
+        logger.warning(
+            "Scenario tags JSON has unexpected structure; expected list[str], got %r. "
+            "Returning empty tag list.",
+            value,
+        )
+    except json.JSONDecodeError as exc:
+        logger.warning(
+            "Failed to parse scenario tags JSON; returning empty tag list. Error: %s",
+            exc,
+            exc_info=True,
+        )
+    return []
+
+
+def list_scenarios(
+    difficulty: str | None = None,
+    source: str | None = None,
+    db_path: Path | None = None,
+) -> list[dict[str, Any]]:
+    """Return scenario summaries, optionally filtered by difficulty and source."""
+    query = (
+        "SELECT id, title, description, difficulty, tags, source, created_at "
+        "FROM scenarios"
+    )
+    where_clauses: list[str] = []
+    params: list[Any] = []
+
+    if difficulty is not None:
+        where_clauses.append("difficulty = ?")
+        params.append(difficulty)
+
+    if source is not None:
+        where_clauses.append("source = ?")
+        params.append(source)
+
+    if where_clauses:
+        query += " WHERE " + " AND ".join(where_clauses)
+
+    query += " ORDER BY created_at DESC"
+
+    with get_db(db_path) as conn:
+        rows = fetchall(conn, query, tuple(params))
+
+    # Summary response intentionally excludes schema_json and embedding.
+    return [
+        {
+            "id": row["id"],
+            "title": row["title"],
+            "description": row["description"],
+            "difficulty": row["difficulty"],
+            "tags": _parse_tags(row["tags"]),
+            "source": row["source"],
+            "created_at": row["created_at"],
+        }
+        for row in rows
+    ]
+
+
+def get_scenario(scenario_id: str, db_path: Path | None = None) -> dict[str, Any] | None:
+    """Return a full scenario record by id, or None if not found."""
+    query = (
+        "SELECT id, title, description, difficulty, tags, source, schema_json, embedding, created_at "
+        "FROM scenarios WHERE id = ?"
+    )
+
+    with get_db(db_path) as conn:
+        row = fetchone(conn, query, (scenario_id,))
+
+    if row is None:
+        return None
+
+    return {
+        "id": row["id"],
+        "title": row["title"],
+        "description": row["description"],
+        "difficulty": row["difficulty"],
+        "tags": _parse_tags(row["tags"]),
+        "source": row["source"],
+        "schema_json": row["schema_json"],
+        "embedding": row["embedding"],
+        "created_at": row["created_at"],
+    }

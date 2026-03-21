@@ -95,12 +95,12 @@ Tasks below reinforce this by: one function per task where possible, services sp
 
 - [x] T023 [P] [US1] Implement `load_bundled_scenarios()` in `backend/src/eduops/services/catalogue.py` — read all JSON files from `backend/src/eduops/scenarios/` directory, parse each into ScenarioSchema, return list
 - [x] T024 [US1] Implement `upsert_scenario()` in `backend/src/eduops/services/catalogue.py` — insert-or-update a scenario row in the DB by ID, store serialised schema_json and embedding BLOB
-- [ ] T025 [US1] Implement `list_scenarios()` and `get_scenario()` in `backend/src/eduops/services/catalogue.py` — list with optional difficulty/source filters, get by ID returning full scenario or None
+- [x] T025 [US1] Implement `list_scenarios()` and `get_scenario()` in `backend/src/eduops/services/catalogue.py` — list with optional difficulty/source filters, get by ID returning full scenario or None
 
 ### Scenario API
 
 - [ ] T026 [US1] Implement `GET /api/scenarios` endpoint in `backend/src/eduops/api/scenarios.py` — list scenarios with optional `difficulty` and `source` query params, return scenario summaries (excluding schema_json)
-- [ ] T027 [US1] Implement `GET /api/scenarios/{scenario_id}` endpoint in `backend/src/eduops/api/scenarios.py` — return scenario detail (excluding schema_json per contract), 404 for unknown IDs
+- [x] T027 [US1] Implement `GET /api/scenarios/{scenario_id}` endpoint in `backend/src/eduops/api/scenarios.py` — return scenario detail (excluding schema_json per contract), 404 for unknown IDs
 
 ### Docker Action Executor
 

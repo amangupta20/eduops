@@ -28,6 +28,7 @@ def create_app(db_path: Path | None = None) -> FastAPI:
 
     # We attach the lifespan manager right when we create the FastAPI instance
     app = FastAPI(title="eduops Core Platform", lifespan=lifespan)
+    app.state.db_path = db_path
 
     # Configure CORS for development — allow all origins (no credentials needed;
     # the Vite dev proxy forwards /api requests, so cookies/auth headers are not
